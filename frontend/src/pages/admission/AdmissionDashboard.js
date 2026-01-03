@@ -125,12 +125,15 @@ const AdmissionDashboard = () => {
                         value={app.status}
                         onChange={(e) => handleStatusUpdate(app.id, e.target.value)}
                         className="text-xs border rounded px-2 py-1"
+                        data-testid="status-dropdown"
                       >
                         <option value="enquiry_new">New</option>
                         <option value="enquiry_hot">Hot</option>
                         <option value="enquiry_warm">Warm</option>
                         <option value="enquiry_cold">Cold</option>
                         <option value="documents_pending">Docs Pending</option>
+                        <option value="documents_verified">Docs Verified</option>
+                        <option value="payment_pending">Payment Pending</option>
                         <option value="admitted">Admitted</option>
                       </select>
                     </td>
@@ -138,13 +141,15 @@ const AdmissionDashboard = () => {
                       <button 
                         onClick={() => handleAdmit(app)}
                         className="text-blue-600 hover:underline text-sm mr-3"
+                        data-testid="view-application-btn"
                       >
                         View
                       </button>
-                      {app.status === 'documents_verified' && (
+                      {(app.status === 'documents_verified' || app.status === 'payment_pending') && (
                         <button
                           onClick={() => handleAdmit(app)}
                           className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                          data-testid="admit-student-btn"
                         >
                           Admit
                         </button>
