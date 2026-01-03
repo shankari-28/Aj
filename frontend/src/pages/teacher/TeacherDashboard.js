@@ -115,21 +115,11 @@ const TeacherDashboard = () => {
           )}
 
           {activeTab === 'attendance' && (
-            <div>
-              <h3 className="text-2xl font-bold text-[#1e3a8a] mb-6">Mark Attendance</h3>
-              <div className="bg-white rounded-xl shadow-md p-6">
-                <p className="text-gray-600">Mark daily attendance for your students here.</p>
-              </div>
-            </div>
+            <AttendanceView teacherId={user?.id} />
           )}
 
           {activeTab === 'activities' && (
-            <div>
-              <h3 className="text-2xl font-bold text-[#1e3a8a] mb-6">Daily Activities</h3>
-              <div className="bg-white rounded-xl shadow-md p-6">
-                <p className="text-gray-600">Update daily activities, homework, and remarks for students.</p>
-              </div>
-            </div>
+            <DailyActivitiesView students={students} />
           )}
         </div>
       </div>
