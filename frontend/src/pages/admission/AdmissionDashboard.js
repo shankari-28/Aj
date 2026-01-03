@@ -37,7 +37,7 @@ const AdmissionDashboard = () => {
   const handleStatusUpdate = async (appId, newStatus) => {
     try {
       await applicationsAPI.update(appId, { status: newStatus });
-      toast.success('Status updated');
+      toast.success('Status updated successfully!');
       loadApplications();
     } catch (error) {
       toast.error('Failed to update status');
