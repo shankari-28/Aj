@@ -122,11 +122,11 @@ const HomePage = () => {
           {/* Mobile Menu */}
           {mobileMenuOpen && (
             <div className="md:hidden mt-4 pb-4 space-y-3">
-              <a href="#" className="block text-gray-700 hover:text-[#f97316]">Home</a>
-              <a href="#about" className="block text-gray-700 hover:text-[#f97316]">About</a>
+              <a href="/" className="block text-gray-700 hover:text-[#f97316]">Home</a>
+              <a href="/about" className="block text-gray-700 hover:text-[#f97316]">About</a>
               <a href="#programs" className="block text-gray-700 hover:text-[#f97316]">Programs</a>
-              <button onClick={() => setShowNewApp(true)} className="block text-gray-700 hover:text-[#f97316]">New Application</button>
-              <button onClick={() => setShowStatus(true)} className="block text-gray-700 hover:text-[#f97316]">Check Status</button>
+              <button onClick={() => setShowNewApp(true)} className="block w-full text-left text-gray-700 hover:text-[#f97316]">New Application</button>
+              <button onClick={() => setShowStatus(true)} className="block w-full text-left text-gray-700 hover:text-[#f97316]">Check Status</button>
               <button onClick={() => setShowLogin(true)} className="w-full px-6 py-2 bg-[#1e3a8a] text-white rounded-md mt-2">Login</button>
               <button onClick={() => setShowNewApp(true)} className="w-full px-6 py-2 bg-[#f97316] text-white rounded-md">Apply Now</button>
             </div>
