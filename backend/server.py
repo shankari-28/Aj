@@ -404,6 +404,105 @@ async def update_application(application_id: str, req: ApplicationUpdateRequest,
     
     return {"success": True, "message": "Application updated"}
 
+class AdmitStudentRequest(BaseModel):
+    section: str
+    academic_year: str
+
+@api_router.post("/applications/{application_id}/admit")
+async def admit_student(application_id: str, req: AdmitStudentRequest, current_user: dict = Depends(get_current_user)):
+    # Get application
+    application = await db.applications.find_one({"id": application_id}, {"_id": 0})
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+    
+    # Check if already admitted
+    if application.get("status") == ApplicationStatus.ADMITTED.value:
+        raise HTTPException(status_code=400, detail="Student already admitted")
+    
+    # Generate admission and roll numbers
+    year = datetime.now(timezone.utc).year
+    admission_number = generate_admission_number(year)
+    
+    # Get section sequence number
+    existing_students = await db.students.count_documents({
+        "current_class": application["applying_for_class"],
+        "section": req.section,
+        "academic_year": req.academic_year
+    })
+    roll_number = generate_roll_number(year, application["applying_for_class"], req.section, existing_students + 1)
+    
+    # Create parent user
+    parent_email = application["email"]
+    parent_exists = await db.users.find_one({"email": parent_email})
+    
+    if not parent_exists:
+        parent_user_data = {
+            "id": str(uuid.uuid4()),
+            "email": parent_email,
+            "password_hash": hash_password(f"parent{year}"),  # Default password
+            "role": UserRole.PARENT.value,
+            "full_name": application["parent_name"],
+            "mobile": application.get("mobile"),
+            "is_active": True,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.users.insert_one(parent_user_data)
+        parent_id = parent_user_data["id"]
+    else:
+        parent_id = parent_exists["id"]
+    
+    # Create student record
+    student_data = {
+        "id": str(uuid.uuid4()),
+        "admission_number": admission_number,
+        "roll_number": roll_number,
+        "student_name": application["student_name"],
+        "gender": application["gender"],
+        "date_of_birth": application["date_of_birth"],
+        "current_class": application["applying_for_class"],
+        "section": req.section,
+        "academic_year": req.academic_year,
+        "parent_id": parent_id,
+        "application_id": application_id,
+        "is_active": True,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.students.insert_one(student_data)
+    
+    # Update application status
+    await db.applications.update_one(
+        {"id": application_id},
+        {"$set": {
+            "status": ApplicationStatus.ADMITTED.value,
+            "admission_number": admission_number,
+            "roll_number": roll_number,
+            "section": req.section,
+            "academic_year": req.academic_year,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Create notification for parent
+    notification_data = {
+        "id": str(uuid.uuid4()),
+        "user_id": parent_id,
+        "title": "Admission Confirmed!",
+        "message": f"Congratulations! {application['student_name']} has been admitted. Roll Number: {roll_number}. Login credentials sent to {parent_email}",
+        "is_read": False,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.notifications.insert_one(notification_data)
+    
+    return {
+        "success": True,
+        "message": "Student admitted successfully",
+        "admission_number": admission_number,
+        "roll_number": roll_number,
+        "parent_email": parent_email,
+        "parent_default_password": f"parent{year}"
+    }
+
 # Students
 @api_router.get("/students")
 async def get_students(current_user: dict = Depends(get_current_user)):
