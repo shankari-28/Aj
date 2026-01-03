@@ -9,6 +9,8 @@ const AdmissionDashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [user, setUser] = useState(null);
   const [applications, setApplications] = useState([]);
+  const [selectedApp, setSelectedApp] = useState(null);
+  const [showAdmitModal, setShowAdmitModal] = useState(false);
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -39,6 +41,11 @@ const AdmissionDashboard = () => {
     } catch (error) {
       toast.error('Failed to update status');
     }
+  };
+
+  const handleAdmit = (app) => {
+    setSelectedApp(app);
+    setShowAdmitModal(true);
   };
 
   return (
