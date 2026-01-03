@@ -209,28 +209,7 @@ const AdminDashboardHome = ({ stats }) => {
 };
 
 const AcademicSetup = () => {
-  return (
-    <div>
-      <h3 className="text-2xl font-bold text-[#1e3a8a] mb-6">Academic Setup</h3>
-      <div className="bg-white rounded-xl shadow-md p-6">
-        <p className="text-gray-600">Configure academic years, standards, and sections here.</p>
-        <div className="mt-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Academic Year</label>
-            <input type="text" placeholder="2025-2026" className="w-full px-4 py-2 border rounded-lg" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">Standards</label>
-            <div className="flex gap-2 flex-wrap">
-              {['Play Group', 'Pre KG', 'LKG', 'UKG'].map(std => (
-                <div key={std} className="px-4 py-2 bg-blue-100 rounded-lg">{std}</div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  return <AcademicSetupView />;
 };
 
 const AdmissionManagement = () => {
