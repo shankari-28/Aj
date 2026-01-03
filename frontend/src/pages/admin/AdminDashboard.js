@@ -282,10 +282,7 @@ const AdmissionManagement = () => {
 const TeacherManagement = () => {
   return (
     <div>
-      <h3 className="text-2xl font-bold text-[#1e3a8a] mb-6">Teacher Management</h3>
-      <div className="bg-white rounded-xl shadow-md p-6">
-        <p className="text-gray-600">Manage teachers, assign classes, and track attendance here.</p>
-      </div>
+      <TeacherAssignmentView />
     </div>
   );
 };
