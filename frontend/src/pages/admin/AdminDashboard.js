@@ -137,10 +137,34 @@ const AdminDashboard = () => {
 };
 
 const AdminDashboardHome = ({ stats }) => {
+  const [dashStats, setDashStats] = useState(stats);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    loadStats();
+  }, []);
+
+  const loadStats = async () => {
+    try {
+      const res = await api.get('/dashboard/stats');
+      setDashStats({
+        totalStudents: res.data.total_students,
+        totalApplications: res.data.total_applications,
+        pendingApplications: res.data.pending_applications,
+        hotEnquiries: res.data.hot_enquiries,
+        warmEnquiries: res.data.warm_enquiries,
+        coldEnquiries: res.data.cold_enquiries,
+      });
+    } catch (error) {
+      console.error('Failed to load stats');
+    }
+  };
+
   const statCards = [
-    { label: 'Total Students', value: stats.totalStudents, color: 'bg-blue-500', icon: '🏫' },
-    { label: 'Total Applications', value: stats.totalApplications, color: 'bg-green-500', icon: '📝' },
-    { label: 'Pending Applications', value: stats.pendingApplications, color: 'bg-orange-500', icon: '⏳' },
+    { label: 'Total Students', value: dashStats.totalStudents, color: 'bg-blue-500', icon: '🏫' },
+    { label: 'Total Applications', value: dashStats.totalApplications, color: 'bg-green-500', icon: '📝' },
+    { label: 'Pending Applications', value: dashStats.pendingApplications, color: 'bg-orange-500', icon: '⏳' },
+    { label: 'Hot Enquiries', value: dashStats.hotEnquiries, color: 'bg-red-500', icon: '🔥' },
   ];
 
   return (
