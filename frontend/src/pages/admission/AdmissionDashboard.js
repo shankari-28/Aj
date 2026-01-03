@@ -49,6 +49,22 @@ const AdmissionDashboard = () => {
     setShowAdmitModal(true);
   };
 
+  const getStatusBadge = (status) => {
+    const badges = {
+      'enquiry_new': { color: 'bg-blue-100 text-blue-800', label: 'New' },
+      'enquiry_hot': { color: 'bg-red-100 text-red-800', label: 'Hot 🔥' },
+      'enquiry_warm': { color: 'bg-amber-100 text-amber-800', label: 'Warm ⚡' },
+      'enquiry_cold': { color: 'bg-gray-100 text-gray-800', label: 'Cold ❄️' },
+      'documents_pending': { color: 'bg-yellow-100 text-yellow-800', label: 'Docs Pending' },
+      'documents_verified': { color: 'bg-green-100 text-green-800', label: 'Docs Verified ✅' },
+      'payment_pending': { color: 'bg-purple-100 text-purple-800', label: 'Payment Pending' },
+      'admitted': { color: 'bg-green-600 text-white', label: 'Admitted 🎓' },
+      'on_hold': { color: 'bg-orange-100 text-orange-800', label: 'On Hold' },
+      'rejected': { color: 'bg-red-100 text-red-800', label: 'Rejected' },
+    };
+    return badges[status] || badges['enquiry_new'];
+  };
+
   return (
     <div className="flex h-screen bg-gray-50" data-testid="admission-dashboard">
       <div className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-[#1e3a8a] text-white transition-all duration-300 flex flex-col`}>
