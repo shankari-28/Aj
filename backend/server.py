@@ -548,6 +548,26 @@ class Section(BaseModel):
     teacher_id: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+class Document(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    application_id: str
+    document_type: str
+    document_name: str
+    file_url: str
+    status: str = "pending"
+    uploaded_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class TeacherAssignment(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    teacher_id: str
+    standard: Standard
+    section: str
+    academic_year: str
+    is_class_teacher: bool = False
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 class AcademicYearCreateRequest(BaseModel):
     year: str
 
