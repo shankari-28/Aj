@@ -134,17 +134,27 @@ const AdmissionDashboard = () => {
                       <select
                         value={app.status}
                         onChange={(e) => handleStatusUpdate(app.id, e.target.value)}
-                        className="text-xs border rounded px-2 py-1"
+                        className="w-full text-sm border-2 border-gray-300 rounded-lg px-3 py-2 bg-white hover:border-[#f97316] focus:border-[#f97316] focus:ring-2 focus:ring-[#f97316]/20 cursor-pointer"
                         data-testid="status-dropdown"
                       >
-                        <option value="enquiry_new">New</option>
-                        <option value="enquiry_hot">Hot</option>
-                        <option value="enquiry_warm">Warm</option>
-                        <option value="enquiry_cold">Cold</option>
-                        <option value="documents_pending">Docs Pending</option>
-                        <option value="documents_verified">Docs Verified</option>
-                        <option value="payment_pending">Payment Pending</option>
-                        <option value="admitted">Admitted</option>
+                        <optgroup label="Lead Status">
+                          <option value="enquiry_new">🆕 New Enquiry</option>
+                          <option value="enquiry_hot">🔥 Hot Lead</option>
+                          <option value="enquiry_warm">⚡ Warm Lead</option>
+                          <option value="enquiry_cold">❄️ Cold Lead</option>
+                        </optgroup>
+                        <optgroup label="Document Status">
+                          <option value="documents_pending">📄 Documents Pending</option>
+                          <option value="documents_verified">✅ Documents Verified</option>
+                        </optgroup>
+                        <optgroup label="Payment & Admission">
+                          <option value="payment_pending">💳 Payment Pending</option>
+                          <option value="admitted">🎓 Admitted</option>
+                        </optgroup>
+                        <optgroup label="Other">
+                          <option value="on_hold">⏸️ On Hold</option>
+                          <option value="rejected">❌ Rejected</option>
+                        </optgroup>
                       </select>
                     </td>
                     <td className="p-3">
