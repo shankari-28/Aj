@@ -613,6 +613,139 @@ async def get_sections(current_user: dict = Depends(get_current_user)):
     sections = await db.sections.find({}, {"_id": 0}).to_list(100)
     return sections
 
+# Teacher Assignment
+class TeacherAssignmentCreateRequest(BaseModel):
+    teacher_id: str
+    standard: Standard
+    section: str
+    academic_year: str
+    is_class_teacher: bool = False
+
+@api_router.post("/teachers/assign")
+async def assign_teacher(req: TeacherAssignmentCreateRequest, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] not in ["super_admin", "school_admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    assignment_data = req.model_dump()
+    assignment_data["id"] = str(uuid.uuid4())
+    assignment_data["created_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.teacher_assignments.insert_one(assignment_data)
+    
+    # Update section with teacher
+    await db.sections.update_one(
+        {"standard": req.standard, "section_name": req.section, "academic_year": req.academic_year},
+        {"$set": {"teacher_id": req.teacher_id}}
+    )
+    
+    return {"success": True, "message": "Teacher assigned successfully"}
+
+@api_router.get("/teachers/assignments")
+async def get_teacher_assignments(current_user: dict = Depends(get_current_user)):
+    assignments = await db.teacher_assignments.find({}, {"_id": 0}).to_list(1000)
+    return assignments
+
+@api_router.get("/teachers/{teacher_id}/students")
+async def get_teacher_students(teacher_id: str, current_user: dict = Depends(get_current_user)):
+    # Get teacher assignments
+    assignments = await db.teacher_assignments.find({"teacher_id": teacher_id}, {"_id": 0}).to_list(100)
+    
+    # Get students for assigned classes
+    students = []
+    for assignment in assignments:
+        class_students = await db.students.find({
+            "current_class": assignment["standard"],
+            "section": assignment["section"],
+            "is_active": True
+        }, {"_id": 0}).to_list(1000)
+        students.extend(class_students)
+    
+    return students
+
+# Bulk Attendance
+class BulkAttendanceRequest(BaseModel):
+    date: str
+    standard: Standard
+    section: str
+    attendance_list: List[Dict[str, Any]]  # [{student_id, status, remarks}]
+
+@api_router.post("/attendance/bulk")
+async def mark_bulk_attendance(req: BulkAttendanceRequest, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] not in ["teacher", "super_admin", "school_admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    attendance_records = []
+    for item in req.attendance_list:
+        attendance_data = {
+            "id": str(uuid.uuid4()),
+            "student_id": item["student_id"],
+            "date": req.date,
+            "status": item["status"],
+            "teacher_id": current_user["id"],
+            "remarks": item.get("remarks"),
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        attendance_records.append(attendance_data)
+    
+    if attendance_records:
+        await db.attendance.insert_many(attendance_records)
+    
+    return {"success": True, "message": f"Attendance marked for {len(attendance_records)} students"}
+
+@api_router.get("/attendance/class/{standard}/{section}/{date}")
+async def get_class_attendance(
+    standard: str, 
+    section: str, 
+    date: str, 
+    current_user: dict = Depends(get_current_user)
+):
+    # Get students in class
+    students = await db.students.find({
+        "current_class": standard,
+        "section": section,
+        "is_active": True
+    }, {"_id": 0}).to_list(1000)
+    
+    # Get attendance for the date
+    attendance_records = await db.attendance.find({
+        "date": date
+    }, {"_id": 0}).to_list(1000)
+    
+    # Create attendance map
+    attendance_map = {rec["student_id"]: rec for rec in attendance_records}
+    
+    # Combine student info with attendance
+    result = []
+    for student in students:
+        result.append({
+            "student": student,
+            "attendance": attendance_map.get(student["id"])
+        })
+    
+    return result
+
+# Document Upload
+class DocumentUploadRequest(BaseModel):
+    application_id: str
+    document_type: str
+    document_name: str
+    file_url: str
+
+@api_router.post("/documents/upload")
+async def upload_document(req: DocumentUploadRequest, current_user: dict = Depends(get_current_user)):
+    doc_data = req.model_dump()
+    doc_data["id"] = str(uuid.uuid4())
+    doc_data["status"] = "pending"
+    doc_data["uploaded_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.documents.insert_one(doc_data)
+    return {"success": True, "message": "Document uploaded successfully"}
+
+@api_router.get("/documents/{application_id}")
+async def get_application_documents(application_id: str, current_user: dict = Depends(get_current_user)):
+    documents = await db.documents.find({"application_id": application_id}, {"_id": 0}).to_list(100)
+    return documents
+
 # Students
 @api_router.get("/students")
 async def get_students(current_user: dict = Depends(get_current_user)):
