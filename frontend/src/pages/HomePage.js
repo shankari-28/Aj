@@ -59,8 +59,8 @@ const HomePage = () => {
 
             {/* Desktop Menu */}
             <div className="hidden md:flex items-center gap-8">
-              <a href="#" className="text-gray-700 hover:text-[#f97316] font-medium">Home</a>
-              <a href="#about" className="text-gray-700 hover:text-[#f97316] font-medium">About</a>
+              <a href="/" className="text-gray-700 hover:text-[#f97316] font-medium">Home</a>
+              <a href="/about" className="text-gray-700 hover:text-[#f97316] font-medium">About</a>
               <a href="#programs" className="text-gray-700 hover:text-[#f97316] font-medium">Programs</a>
               
               {/* Admissions Dropdown */}
