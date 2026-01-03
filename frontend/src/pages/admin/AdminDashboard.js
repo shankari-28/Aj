@@ -214,6 +214,8 @@ const AcademicSetup = () => {
 
 const AdmissionManagement = () => {
   const [applications, setApplications] = useState([]);
+  const [selectedApp, setSelectedApp] = useState(null);
+  const [showAdmitModal, setShowAdmitModal] = useState(false);
 
   useEffect(() => {
     loadApplications();
@@ -228,39 +230,188 @@ const AdmissionManagement = () => {
     }
   };
 
+  const handleStatusUpdate = async (appId, newStatus) => {
+    try {
+      await applicationsAPI.update(appId, { status: newStatus });
+      toast.success('Status updated successfully!');
+      loadApplications();
+    } catch (error) {
+      toast.error('Failed to update status');
+    }
+  };
+
+  const handleAdmit = (app) => {
+    setSelectedApp(app);
+    setShowAdmitModal(true);
+  };
+
+  const getStatusBadge = (status) => {
+    const badges = {
+      'enquiry_new': { color: 'bg-blue-100 text-blue-800', label: 'New' },
+      'enquiry_hot': { color: 'bg-red-100 text-red-800', label: 'Hot 🔥' },
+      'enquiry_warm': { color: 'bg-amber-100 text-amber-800', label: 'Warm ⚡' },
+      'enquiry_cold': { color: 'bg-gray-100 text-gray-800', label: 'Cold ❄️' },
+      'documents_pending': { color: 'bg-yellow-100 text-yellow-800', label: 'Docs Pending' },
+      'documents_verified': { color: 'bg-green-100 text-green-800', label: 'Docs Verified ✅' },
+      'payment_pending': { color: 'bg-purple-100 text-purple-800', label: 'Payment Pending' },
+      'admitted': { color: 'bg-green-600 text-white', label: 'Admitted 🎓' },
+      'on_hold': { color: 'bg-orange-100 text-orange-800', label: 'On Hold' },
+      'rejected': { color: 'bg-red-100 text-red-800', label: 'Rejected' },
+    };
+    return badges[status] || badges['enquiry_new'];
+  };
+
   return (
     <div>
-      <h3 className="text-2xl font-bold text-[#1e3a8a] mb-6">Admission Management</h3>
+      <h3 className="text-2xl font-bold text-[#1e3a8a] mb-6\">Admission Management</h3>
       <div className="bg-white rounded-xl shadow-md p-6">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b">
                 <th className="text-left p-3">Reference</th>
-                <th className="text-left p-3">Student Name</th>
+                <th className="text-left p-3">Student</th>
                 <th className="text-left p-3">Class</th>
-                <th className="text-left p-3">Status</th>
-                <th className="text-left p-3">Date</th>
+                <th className="text-left p-3">Contact</th>
+                <th className="text-left p-3">Current Status</th>
+                <th className="text-left p-3">Change Status</th>
+                <th className="text-left p-3">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {applications.map((app) => (
-                <tr key={app.id} className="border-b hover:bg-gray-50">
-                  <td className="p-3 font-mono text-sm">{app.reference_number}</td>
-                  <td className="p-3">{app.student_name}</td>
-                  <td className="p-3 capitalize">{app.applying_for_class?.replace('_', ' ')}</td>
-                  <td className="p-3">
-                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
-                      {app.status?.replace('_', ' ')}
-                    </span>
-                  </td>
-                  <td className="p-3 text-sm text-gray-600">{new Date(app.created_at).toLocaleDateString()}</td>
-                </tr>
-              ))}
+              {applications.map((app) => {
+                const statusBadge = getStatusBadge(app.status);
+                return (
+                  <tr key={app.id} className="border-b hover:bg-gray-50">
+                    <td className="p-3 font-mono text-sm">{app.reference_number}</td>
+                    <td className="p-3">{app.student_name}</td>
+                    <td className="p-3 capitalize">{app.applying_for_class?.replace('_', ' ')}</td>
+                    <td className="p-3 text-sm">{app.mobile}</td>
+                    <td className="p-3">
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusBadge.color}`}>
+                        {statusBadge.label}
+                      </span>
+                    </td>
+                    <td className="p-3">
+                      <select
+                        value={app.status}
+                        onChange={(e) => handleStatusUpdate(app.id, e.target.value)}
+                        className="w-full text-sm border-2 border-gray-300 rounded-lg px-3 py-2 bg-white hover:border-[#f97316] focus:border-[#f97316] focus:ring-2 focus:ring-[#f97316]/20 cursor-pointer"
+                      >
+                        <optgroup label="Lead Status">
+                          <option value="enquiry_new">🆕 New Enquiry</option>
+                          <option value="enquiry_hot">🔥 Hot Lead</option>
+                          <option value="enquiry_warm">⚡ Warm Lead</option>
+                          <option value="enquiry_cold">❄️ Cold Lead</option>
+                        </optgroup>
+                        <optgroup label="Document Status">
+                          <option value="documents_pending">📄 Documents Pending</option>
+                          <option value="documents_verified">✅ Documents Verified</option>
+                        </optgroup>
+                        <optgroup label="Payment & Admission">
+                          <option value="payment_pending">💳 Payment Pending</option>
+                          <option value="admitted">🎓 Admitted</option>
+                        </optgroup>
+                        <optgroup label="Other">
+                          <option value="on_hold">⏸️ On Hold</option>
+                          <option value="rejected">❌ Rejected</option>
+                        </optgroup>
+                      </select>
+                    </td>
+                    <td className="p-3">
+                      <button 
+                        onClick={() => handleAdmit(app)}
+                        className="text-blue-600 hover:underline text-sm mr-3"
+                      >
+                        View
+                      </button>
+                      {(app.status === 'documents_verified' || app.status === 'payment_pending') && (
+                        <button
+                          onClick={() => handleAdmit(app)}
+                          className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                        >
+                          Admit
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Admit Student Modal - reuse from Admission Dashboard */}
+      {showAdmitModal && selectedApp && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowAdmitModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-[#1e3a8a] text-white p-6 rounded-t-2xl">
+              <h2 className="text-xl font-bold">Admit Student</h2>
+            </div>
+
+            <div className="p-6">
+              <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+                <p className="font-semibold text-[#1e3a8a]">{selectedApp.student_name}</p>
+                <p className="text-sm text-gray-600">Class: {selectedApp.applying_for_class?.replace('_', ' ').toUpperCase()}</p>
+                <p className="text-sm text-gray-600">Parent: {selectedApp.parent_name}</p>
+              </div>
+
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                try {
+                  const formData = new FormData(e.target);
+                  await api.post(`/applications/${selectedApp.id}/admit`, {
+                    section: formData.get('section'),
+                    academic_year: formData.get('academic_year')
+                  });
+                  toast.success('Student admitted successfully!');
+                  setShowAdmitModal(false);
+                  loadApplications();
+                } catch (error) {
+                  toast.error('Failed to admit student');
+                }
+              }} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Section *</label>
+                  <select name="section" className="w-full px-4 py-2 border rounded-lg" required>
+                    <option value="A">Section A</option>
+                    <option value="B">Section B</option>
+                    <option value="C">Section C</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">Academic Year *</label>
+                  <input
+                    type="text"
+                    name="academic_year"
+                    defaultValue="2025-2026"
+                    className="w-full px-4 py-2 border rounded-lg"
+                    required
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdmitModal(false)}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  >
+                    Admit Student
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
