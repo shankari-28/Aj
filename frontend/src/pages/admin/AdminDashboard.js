@@ -296,6 +296,14 @@ const TeacherManagement = () => {
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    role: 'teacher',
+    full_name: '',
+    mobile: ''
+  });
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     loadUsers();
@@ -310,6 +318,28 @@ const UserManagement = () => {
     }
   };
 
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await adminAPI.createUser(formData);
+      toast.success('User created successfully!');
+      setShowCreate(false);
+      loadUsers();
+      setFormData({
+        email: '',
+        password: '',
+        role: 'teacher',
+        full_name: '',
+        mobile: ''
+      });
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to create user');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -317,6 +347,7 @@ const UserManagement = () => {
         <button
           onClick={() => setShowCreate(true)}
           className="px-6 py-2 bg-[#f97316] text-white rounded-lg hover:bg-[#f97316]/90"
+          data-testid="create-user-button"
         >
           Create User
         </button>
@@ -355,6 +386,96 @@ const UserManagement = () => {
           </table>
         </div>
       </div>
+
+      {/* Create User Modal */}
+      {showCreate && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowCreate(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-[#1e3a8a] text-white p-6 rounded-t-2xl">
+              <h2 className="text-xl font-bold">Create New User</h2>
+            </div>
+
+            <form onSubmit={handleCreateUser} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Full Name *</label>
+                <input
+                  type="text"
+                  value={formData.full_name}
+                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                  className="w-full px-4 py-2 border rounded-lg"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Email *</label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full px-4 py-2 border rounded-lg"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Password *</label>
+                <input
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="w-full px-4 py-2 border rounded-lg"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Mobile</label>
+                <input
+                  type="tel"
+                  value={formData.mobile}
+                  onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
+                  className="w-full px-4 py-2 border rounded-lg"
+                  placeholder="10-digit mobile number"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Role *</label>
+                <select
+                  value={formData.role}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                  className="w-full px-4 py-2 border rounded-lg"
+                  required
+                >
+                  <option value="school_admin">School Admin</option>
+                  <option value="admission_officer">Admission Officer</option>
+                  <option value="teacher">Teacher</option>
+                  <option value="finance_manager">Finance Manager</option>
+                  <option value="inventory_manager">Inventory Manager</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowCreate(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 px-4 py-2 bg-[#f97316] text-white rounded-lg hover:bg-[#f97316]/90 disabled:opacity-50"
+                >
+                  {loading ? 'Creating...' : 'Create User'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
