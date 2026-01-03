@@ -89,6 +89,16 @@ const AdmissionDashboard = () => {
         <div className="p-6">
           <h3 className="text-2xl font-bold text-[#1e3a8a] mb-6">Application Management</h3>
           
+          <div className="mb-6 flex justify-between items-center">
+            <button
+              onClick={() => navigate('/walk-in-registry')}
+              className="px-6 py-3 bg-[#f97316] text-white rounded-lg hover:bg-[#f97316]/90 font-semibold flex items-center gap-2"
+            >
+              <FileText className="w-5 h-5" />
+              Walk-in Registry
+            </button>
+          </div>
+          
           <div className="grid grid-cols-4 gap-4 mb-6">
             {[{label: 'Total', color: 'blue'}, {label: 'Hot', color: 'green'}, {label: 'Warm', color: 'amber'}, {label: 'Cold', color: 'gray'}].map((stat, idx) => (
               <div key={idx} className={`bg-${stat.color}-100 border border-${stat.color}-300 rounded-lg p-4`}>
