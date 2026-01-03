@@ -5,6 +5,7 @@ import AboutPage from './pages/AboutPage';
 import LoginPage from './pages/LoginPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdmissionDashboard from './pages/admission/AdmissionDashboard';
+import WalkInRegistry from './pages/admission/WalkInRegistry';
 import TeacherDashboard from './pages/teacher/TeacherDashboard';
 import FinanceDashboard from './pages/finance/FinanceDashboard';
 import InventoryDashboard from './pages/inventory/InventoryDashboard';
