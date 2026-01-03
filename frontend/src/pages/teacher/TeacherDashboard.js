@@ -22,10 +22,17 @@ const TeacherDashboard = () => {
 
   const loadStudents = async () => {
     try {
-      const res = await studentsAPI.getAll();
+      const res = await api.get(`/teachers/${user?.id}/students`);
       setStudents(res.data);
     } catch (error) {
-      toast.error('Failed to load students');
+      console.error('Failed to load students:', error);
+      // Fallback to all students if teacher not assigned yet
+      try {
+        const allRes = await studentsAPI.getAll();
+        setStudents(allRes.data);
+      } catch (e) {
+        toast.error('Failed to load students');
+      }
     }
   };
 
