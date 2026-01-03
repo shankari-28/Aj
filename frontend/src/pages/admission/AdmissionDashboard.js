@@ -156,6 +156,118 @@ const AdmissionDashboard = () => {
           </div>
         </div>
       </div>
+      
+      {/* Admit Student Modal */}
+      {showAdmitModal && selectedApp && (
+        <AdmitStudentModal
+          application={selectedApp}
+          onClose={() => {
+            setShowAdmitModal(false);
+            setSelectedApp(null);
+          }}
+          onSuccess={() => {
+            setShowAdmitModal(false);
+            setSelectedApp(null);
+            loadApplications();
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
+const AdmitStudentModal = ({ application, onClose, onSuccess }) => {
+  const [formData, setFormData] = useState({
+    section: 'A',
+    academic_year: '2025-2026',
+  });
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const response = await api.post(`/applications/${application.id}/admit`, formData);
+      toast.success(`Student admitted! Roll No: ${response.data.roll_number}`);
+      toast.info(`Parent login: ${response.data.parent_email} / ${response.data.parent_default_password}`);
+      onSuccess();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to admit student');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-[#1e3a8a] text-white p-6 rounded-t-2xl">
+          <h2 className="text-xl font-bold">Admit Student</h2>
+        </div>
+
+        <div className="p-6">
+          <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+            <p className="font-semibold text-[#1e3a8a]">{application.student_name}</p>
+            <p className="text-sm text-gray-600">Class: {application.applying_for_class?.replace('_', ' ').toUpperCase()}</p>
+            <p className="text-sm text-gray-600">Parent: {application.parent_name}</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Section *</label>
+              <select
+                value={formData.section}
+                onChange={(e) => setFormData({ ...formData, section: e.target.value })}
+                className="w-full px-4 py-2 border rounded-lg"
+                required
+              >
+                <option value="A">Section A</option>
+                <option value="B">Section B</option>
+                <option value="C">Section C</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Academic Year *</label>
+              <input
+                type="text"
+                value={formData.academic_year}
+                onChange={(e) => setFormData({ ...formData, academic_year: e.target.value })}
+                className="w-full px-4 py-2 border rounded-lg"
+                placeholder="2025-2026"
+                required
+              />
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+              <p>⚠️ This will:</p>
+              <ul className="list-disc ml-5 mt-1">
+                <li>Generate admission & roll numbers</li>
+                <li>Create parent login credentials</li>
+                <li>Send notification to parent</li>
+              </ul>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+              >
+                {loading ? 'Admitting...' : 'Admit Student'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   );
 };
