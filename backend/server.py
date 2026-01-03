@@ -315,6 +315,33 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         "full_name": current_user["full_name"]
     }
 
+@api_router.get("/dashboard/stats")
+async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
+    # Get counts
+    total_applications = await db.applications.count_documents({})
+    total_students = await db.students.count_documents({"is_active": True})
+    pending_applications = await db.applications.count_documents({
+        "status": {"$in": ["enquiry_new", "enquiry_hot", "enquiry_warm", "documents_pending"]}
+    })
+    
+    # Get enquiry breakdown
+    hot_enquiries = await db.applications.count_documents({"status": "enquiry_hot"})
+    warm_enquiries = await db.applications.count_documents({"status": "enquiry_warm"})
+    cold_enquiries = await db.applications.count_documents({"status": "enquiry_cold"})
+    
+    # Get recent applications
+    recent_applications = await db.applications.find({}, {"_id": 0}).sort("created_at", -1).limit(5).to_list(5)
+    
+    return {
+        "total_applications": total_applications,
+        "total_students": total_students,
+        "pending_applications": pending_applications,
+        "hot_enquiries": hot_enquiries,
+        "warm_enquiries": warm_enquiries,
+        "cold_enquiries": cold_enquiries,
+        "recent_applications": recent_applications
+    }
+
 # Public Application APIs
 class ApplicationCreateRequest(BaseModel):
     branch: str = "Medavakkam, Chennai"
