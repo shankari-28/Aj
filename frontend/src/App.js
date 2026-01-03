@@ -29,6 +29,7 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/walk-in-registry" element={<WalkInRegistry />} />
         
         {/* Protected Routes */}
         <Route path="/admin/*" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
