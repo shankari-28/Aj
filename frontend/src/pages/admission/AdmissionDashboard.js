@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, FileText, LogOut, Menu, X } from 'lucide-react';
 import { applicationsAPI } from '../../utils/api';
+import api from '../../utils/api';
 import { toast } from 'sonner';
 
 const AdmissionDashboard = () => {
