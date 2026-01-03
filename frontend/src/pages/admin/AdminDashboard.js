@@ -14,6 +14,7 @@ import {
   BookOpen
 } from 'lucide-react';
 import { applicationsAPI, studentsAPI, adminAPI } from '../../utils/api';
+import api from '../../utils/api';
 import { toast } from 'sonner';
 
 const AdminDashboard = () => {
