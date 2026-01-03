@@ -134,7 +134,20 @@ const AdmissionDashboard = () => {
                       </select>
                     </td>
                     <td className="p-3">
-                      <button className="text-blue-600 hover:underline text-sm">View</button>
+                      <button 
+                        onClick={() => handleAdmit(app)}
+                        className="text-blue-600 hover:underline text-sm mr-3"
+                      >
+                        View
+                      </button>
+                      {app.status === 'documents_verified' && (
+                        <button
+                          onClick={() => handleAdmit(app)}
+                          className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                        >
+                          Admit
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
