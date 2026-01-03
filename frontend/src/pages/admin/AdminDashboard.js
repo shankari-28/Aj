@@ -189,10 +189,16 @@ const AdminDashboardHome = ({ stats }) => {
       <div className="mt-8 bg-white rounded-xl shadow-md p-6">
         <h4 className="text-lg font-semibold mb-4">Quick Actions</h4>
         <div className="grid md:grid-cols-2 gap-4">
-          <button className="px-6 py-3 bg-[#f97316] text-white rounded-lg hover:bg-[#f97316]/90">
+          <button 
+            onClick={() => navigate('/admin/users')}
+            className="px-6 py-3 bg-[#f97316] text-white rounded-lg hover:bg-[#f97316]/90 font-medium"
+          >
             Create New User
           </button>
-          <button className="px-6 py-3 bg-[#1e3a8a] text-white rounded-lg hover:bg-[#1e3a8a]/90">
+          <button 
+            onClick={() => navigate('/admin/admissions')}
+            className="px-6 py-3 bg-[#1e3a8a] text-white rounded-lg hover:bg-[#1e3a8a]/90 font-medium"
+          >
             View All Applications
           </button>
         </div>
