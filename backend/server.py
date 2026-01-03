@@ -759,6 +759,54 @@ async def get_student(student_id: str, current_user: dict = Depends(get_current_
         raise HTTPException(status_code=404, detail="Student not found")
     return student
 
+# Parent APIs
+@api_router.get("/parent/children")
+async def get_parent_children(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "parent":
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    children = await db.students.find({"parent_id": current_user["id"], "is_active": True}, {"_id": 0}).to_list(100)
+    return children
+
+@api_router.get("/parent/child/{student_id}/activities")
+async def get_child_activities(student_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "parent":
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Verify parent owns this child
+    student = await db.students.find_one({"id": student_id, "parent_id": current_user["id"]}, {"_id": 0})
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    activities = await db.daily_activities.find({"student_id": student_id}, {"_id": 0}).sort("date", -1).limit(30).to_list(30)
+    return activities
+
+@api_router.get("/parent/child/{student_id}/attendance")
+async def get_child_attendance(student_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "parent":
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Verify parent owns this child
+    student = await db.students.find_one({"id": student_id, "parent_id": current_user["id"]}, {"_id": 0})
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    attendance = await db.attendance.find({"student_id": student_id}, {"_id": 0}).sort("date", -1).limit(60).to_list(60)
+    return attendance
+
+@api_router.get("/parent/child/{student_id}/fees")
+async def get_child_fees(student_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "parent":
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Verify parent owns this child
+    student = await db.students.find_one({"id": student_id, "parent_id": current_user["id"]}, {"_id": 0})
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    payments = await db.fee_payments.find({"student_id": student_id}, {"_id": 0}).to_list(100)
+    return payments
+
 # Attendance
 class AttendanceCreateRequest(BaseModel):
     student_id: str
