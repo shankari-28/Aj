@@ -135,64 +135,73 @@ const AdmissionDashboard = () => {
                   <th className="text-left p-3">Student</th>
                   <th className="text-left p-3">Class</th>
                   <th className="text-left p-3">Contact</th>
-                  <th className="text-left p-3">Status</th>
+                  <th className="text-left p-3">Current Status</th>
+                  <th className="text-left p-3">Change Status</th>
                   <th className="text-left p-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {applications.map(app => (
-                  <tr key={app.id} className="border-b hover:bg-gray-50">
-                    <td className="p-3 font-mono text-sm">{app.reference_number}</td>
-                    <td className="p-3">{app.student_name}</td>
-                    <td className="p-3 capitalize">{app.applying_for_class?.replace('_', ' ')}</td>
-                    <td className="p-3 text-sm">{app.mobile}</td>
-                    <td className="p-3">
-                      <select
-                        value={app.status}
-                        onChange={(e) => handleStatusUpdate(app.id, e.target.value)}
-                        className="w-full text-sm border-2 border-gray-300 rounded-lg px-3 py-2 bg-white hover:border-[#f97316] focus:border-[#f97316] focus:ring-2 focus:ring-[#f97316]/20 cursor-pointer"
-                        data-testid="status-dropdown"
-                      >
-                        <optgroup label="Lead Status">
-                          <option value="enquiry_new">🆕 New Enquiry</option>
-                          <option value="enquiry_hot">🔥 Hot Lead</option>
-                          <option value="enquiry_warm">⚡ Warm Lead</option>
-                          <option value="enquiry_cold">❄️ Cold Lead</option>
-                        </optgroup>
-                        <optgroup label="Document Status">
-                          <option value="documents_pending">📄 Documents Pending</option>
-                          <option value="documents_verified">✅ Documents Verified</option>
-                        </optgroup>
-                        <optgroup label="Payment & Admission">
-                          <option value="payment_pending">💳 Payment Pending</option>
-                          <option value="admitted">🎓 Admitted</option>
-                        </optgroup>
-                        <optgroup label="Other">
-                          <option value="on_hold">⏸️ On Hold</option>
-                          <option value="rejected">❌ Rejected</option>
-                        </optgroup>
-                      </select>
-                    </td>
-                    <td className="p-3">
-                      <button 
-                        onClick={() => handleAdmit(app)}
-                        className="text-blue-600 hover:underline text-sm mr-3"
-                        data-testid="view-application-btn"
-                      >
-                        View
-                      </button>
-                      {(app.status === 'documents_verified' || app.status === 'payment_pending') && (
-                        <button
-                          onClick={() => handleAdmit(app)}
-                          className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
-                          data-testid="admit-student-btn"
+                {applications.map(app => {
+                  const statusBadge = getStatusBadge(app.status);
+                  return (
+                    <tr key={app.id} className="border-b hover:bg-gray-50">
+                      <td className="p-3 font-mono text-sm">{app.reference_number}</td>
+                      <td className="p-3">{app.student_name}</td>
+                      <td className="p-3 capitalize">{app.applying_for_class?.replace('_', ' ')}</td>
+                      <td className="p-3 text-sm">{app.mobile}</td>
+                      <td className="p-3">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusBadge.color}`}>
+                          {statusBadge.label}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        <select
+                          value={app.status}
+                          onChange={(e) => handleStatusUpdate(app.id, e.target.value)}
+                          className="w-full text-sm border-2 border-gray-300 rounded-lg px-3 py-2 bg-white hover:border-[#f97316] focus:border-[#f97316] focus:ring-2 focus:ring-[#f97316]/20 cursor-pointer"
+                          data-testid="status-dropdown"
                         >
-                          Admit
+                          <optgroup label="Lead Status">
+                            <option value="enquiry_new">🆕 New Enquiry</option>
+                            <option value="enquiry_hot">🔥 Hot Lead</option>
+                            <option value="enquiry_warm">⚡ Warm Lead</option>
+                            <option value="enquiry_cold">❄️ Cold Lead</option>
+                          </optgroup>
+                          <optgroup label="Document Status">
+                            <option value="documents_pending">📄 Documents Pending</option>
+                            <option value="documents_verified">✅ Documents Verified</option>
+                          </optgroup>
+                          <optgroup label="Payment & Admission">
+                            <option value="payment_pending">💳 Payment Pending</option>
+                            <option value="admitted">🎓 Admitted</option>
+                          </optgroup>
+                          <optgroup label="Other">
+                            <option value="on_hold">⏸️ On Hold</option>
+                            <option value="rejected">❌ Rejected</option>
+                          </optgroup>
+                        </select>
+                      </td>
+                      <td className="p-3">
+                        <button 
+                          onClick={() => handleAdmit(app)}
+                          className="text-blue-600 hover:underline text-sm mr-3"
+                          data-testid="view-application-btn"
+                        >
+                          View
                         </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                        {(app.status === 'documents_verified' || app.status === 'payment_pending') && (
+                          <button
+                            onClick={() => handleAdmit(app)}
+                            className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                            data-testid="admit-student-btn"
+                          >
+                            Admit
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
