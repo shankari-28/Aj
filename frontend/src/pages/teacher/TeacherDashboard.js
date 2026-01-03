@@ -2,7 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Users, Calendar, Activity, LogOut, Menu, X } from 'lucide-react';
 import { studentsAPI, attendanceAPI, activitiesAPI } from '../../utils/api';
+import api from '../../utils/api';
 import { toast } from 'sonner';
+import AttendanceView from './AttendanceView';
+import DailyActivitiesView from './DailyActivitiesView';
 
 const TeacherDashboard = () => {
   const navigate = useNavigate();
