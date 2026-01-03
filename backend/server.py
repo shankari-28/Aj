@@ -503,6 +503,69 @@ async def admit_student(application_id: str, req: AdmitStudentRequest, current_u
         "parent_default_password": f"parent{year}"
     }
 
+# Academic Setup
+class AcademicYear(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    year: str
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class Section(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    standard: Standard
+    section_name: str
+    capacity: int = 30
+    academic_year: str
+    teacher_id: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class AcademicYearCreateRequest(BaseModel):
+    year: str
+
+@api_router.post("/academic/years")
+async def create_academic_year(req: AcademicYearCreateRequest, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] not in ["super_admin", "school_admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    year_data = req.model_dump()
+    year_data["id"] = str(uuid.uuid4())
+    year_data["is_active"] = True
+    year_data["created_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.academic_years.insert_one(year_data)
+    return {"success": True, "message": "Academic year created"}
+
+@api_router.get("/academic/years")
+async def get_academic_years(current_user: dict = Depends(get_current_user)):
+    years = await db.academic_years.find({}, {"_id": 0}).to_list(100)
+    return years
+
+class SectionCreateRequest(BaseModel):
+    standard: Standard
+    section_name: str
+    capacity: int = 30
+    academic_year: str
+    teacher_id: Optional[str] = None
+
+@api_router.post("/academic/sections")
+async def create_section(req: SectionCreateRequest, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] not in ["super_admin", "school_admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    section_data = req.model_dump()
+    section_data["id"] = str(uuid.uuid4())
+    section_data["created_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.sections.insert_one(section_data)
+    return {"success": True, "message": "Section created"}
+
+@api_router.get("/academic/sections")
+async def get_sections(current_user: dict = Depends(get_current_user)):
+    sections = await db.sections.find({}, {"_id": 0}).to_list(100)
+    return sections
+
 # Students
 @api_router.get("/students")
 async def get_students(current_user: dict = Depends(get_current_user)):
