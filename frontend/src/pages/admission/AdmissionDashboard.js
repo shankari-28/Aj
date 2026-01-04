@@ -185,11 +185,14 @@ const AdmissionDashboard = () => {
                       </td>
                       <td className="p-3">
                         <button 
-                          onClick={() => handleAdmit(app)}
+                          onClick={() => {
+                            setSelectedApp(app);
+                            setShowDocuments(true);
+                          }}
                           className="text-blue-600 hover:underline text-sm mr-3"
                           data-testid="view-application-btn"
                         >
-                          View
+                          View Docs
                         </button>
                         {(app.status === 'documents_verified' || app.status === 'payment_pending') && (
                           <button
