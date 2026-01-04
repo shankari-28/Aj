@@ -429,12 +429,16 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Fee Management View - Create Fee Structure Modal"
-    - "Fee Management View - Payment Collection Modal"
-    - "Fee Management View - Fee Structures Display"
-    - "Fee Management View - Student List & Selection"
-    - "Finance Dashboard Integration"
-    - "Admin Dashboard Finance Integration"
+    - "Reports API - Daily Collection"
+    - "Reports API - Outstanding Dues"
+    - "Reports API - Collection Summary"
+    - "Announcements API - Create"
+    - "Announcements API - Get All"
+    - "Notifications API - Unread Count"
+    - "Notifications API - Fee Reminders"
+    - "Documents API - Upload File"
+    - "Documents API - Get Application Documents"
+    - "Documents API - Verify Document"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
