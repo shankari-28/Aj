@@ -4,6 +4,7 @@ import { LayoutDashboard, FileText, LogOut, Menu, X } from 'lucide-react';
 import { applicationsAPI } from '../../utils/api';
 import api from '../../utils/api';
 import { toast } from 'sonner';
+import DocumentManagement from '../../components/DocumentManagement';
 
 const AdmissionDashboard = () => {
   const navigate = useNavigate();
