@@ -895,6 +895,21 @@ async def get_student_payments(student_id: str, current_user: dict = Depends(get
     payments = await db.fee_payments.find({"student_id": student_id}, {"_id": 0}).to_list(1000)
     return payments
 
+@api_router.post("/fee-payments/record")
+async def record_payment(data: dict, current_user: dict = Depends(get_current_user)):
+    payment_data = {
+        "id": str(uuid.uuid4()),
+        "student_id": data["student_id"],
+        "amount": data["amount"],
+        "payment_mode": data["payment_mode"],
+        "payment_status": data.get("payment_status", "paid"),
+        "receipt_number": f"RCPT-{str(uuid.uuid4())[:8].upper()}",
+        "payment_date": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.fee_payments.insert_one(payment_data)
+    return {"success": True, "receipt_number": payment_data["receipt_number"]}
+
 # Razorpay Payment
 class CreateOrderRequest(BaseModel):
     student_id: str
