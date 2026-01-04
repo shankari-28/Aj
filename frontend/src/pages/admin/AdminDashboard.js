@@ -18,6 +18,7 @@ import api from '../../utils/api';
 import { toast } from 'sonner';
 import TeacherAssignmentView from './TeacherAssignmentView';
 import AcademicSetupView from './AcademicSetupView';
+import FeeManagementView from '../finance/FeeManagementView';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
