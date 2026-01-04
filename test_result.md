@@ -519,16 +519,12 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Reports API - Daily Collection"
-    - "Reports API - Outstanding Dues"
-    - "Reports API - Collection Summary"
-    - "Announcements API - Create"
-    - "Announcements API - Get All"
-    - "Notifications API - Unread Count"
-    - "Notifications API - Fee Reminders"
-    - "Documents API - Upload File"
-    - "Documents API - Get Application Documents"
-    - "Documents API - Verify Document"
+    - "Reports Module Frontend - Daily Collection"
+    - "Reports Module Frontend - Outstanding Dues"
+    - "Reports Module Frontend - Collection Summary"
+    - "Announcements Module Frontend"
+    - "Notification Bell Component"
+    - "Finance Dashboard Reports Integration"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
