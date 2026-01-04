@@ -121,7 +121,8 @@ const AdminDashboard = () => {
         <div className="bg-white shadow-sm border-b border-gray-200 p-6">
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold text-[#1e3a8a]">Welcome, {user?.full_name}</h2>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
+              <NotificationBell />
               <div className="text-right">
                 <p className="text-sm text-gray-600">{user?.email}</p>
                 <p className="text-xs text-gray-500 capitalize">{user?.role?.replace('_', ' ')}</p>
@@ -138,6 +139,8 @@ const AdminDashboard = () => {
             <Route path="/admissions" element={<AdmissionManagement />} />
             <Route path="/teachers" element={<TeacherManagement />} />
             <Route path="/finance" element={<FeeManagementView />} />
+            <Route path="/reports" element={<ReportsView />} />
+            <Route path="/announcements" element={<AnnouncementsView />} />
             <Route path="/inventory" element={<div>Inventory Management (Coming Soon)</div>} />
             <Route path="/users" element={<UserManagement />} />
           </Routes>
