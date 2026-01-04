@@ -746,6 +746,16 @@ async def get_application_documents(application_id: str, current_user: dict = De
     documents = await db.documents.find({"application_id": application_id}, {"_id": 0}).to_list(100)
     return documents
 
+@api_router.patch("/documents/{document_id}")
+async def update_document_status(document_id: str, status: str, current_user: dict = Depends(get_current_user)):
+    result = await db.documents.update_one(
+        {"id": document_id},
+        {"$set": {"status": status}}
+    )
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return {"success": True, "message": "Document status updated"}
+
 # Students
 @api_router.get("/students")
 async def get_students(current_user: dict = Depends(get_current_user)):
