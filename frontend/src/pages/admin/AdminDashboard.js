@@ -130,7 +130,7 @@ const AdminDashboard = () => {
             <Route path="/academic" element={<AcademicSetup />} />
             <Route path="/admissions" element={<AdmissionManagement />} />
             <Route path="/teachers" element={<TeacherManagement />} />
-            <Route path="/finance" element={<div>Finance Management (Coming Soon)</div>} />
+            <Route path="/finance" element={<FeeManagementView />} />
             <Route path="/inventory" element={<div>Inventory Management (Coming Soon)</div>} />
             <Route path="/users" element={<UserManagement />} />
           </Routes>
