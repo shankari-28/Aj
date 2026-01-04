@@ -228,6 +228,17 @@ const AdmissionDashboard = () => {
           }}
         />
       )}
+
+      {/* Document Management Modal */}
+      {showDocuments && selectedApp && (
+        <DocumentManagement
+          applicationId={selectedApp.id}
+          onClose={() => {
+            setShowDocuments(false);
+            setSelectedApp(null);
+          }}
+        />
+      )}
     </div>
   );
 };
