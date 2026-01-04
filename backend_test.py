@@ -498,7 +498,7 @@ class KidScholarsAPITester:
         return success
 
 def main():
-    print("🚀 Starting Kid Scholars Phase 2 API Testing...")
+    print("🚀 Starting Kid Scholars Fee Management API Testing...")
     tester = KidScholarsAPITester()
     
     # Test sequence
@@ -517,6 +517,12 @@ def main():
         ("Parent Children", tester.test_parent_children),
         ("Parent Child Activities", tester.test_parent_child_activities),
         ("Parent Child Attendance", tester.test_parent_child_attendance),
+        # Fee Management Tests
+        ("Get All Students", tester.test_get_students),
+        ("Create Fee Structure", tester.test_create_fee_structure),
+        ("Get Fee Structures", tester.test_get_fee_structures),
+        ("Record Offline Payment", tester.test_record_offline_payment),
+        ("Get Student Payments", tester.test_get_student_payments),
     ]
     
     for test_name, test_func in tests:
