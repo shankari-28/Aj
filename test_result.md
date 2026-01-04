@@ -261,11 +261,12 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Fee Structure API - Create"
-    - "Fee Structure API - Get All"
-    - "Fee Payment API - Record Offline Payment"
     - "Fee Management View - Create Fee Structure Modal"
     - "Fee Management View - Payment Collection Modal"
+    - "Fee Management View - Fee Structures Display"
+    - "Fee Management View - Student List & Selection"
+    - "Finance Dashboard Integration"
+    - "Admin Dashboard Finance Integration"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
