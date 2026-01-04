@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, DollarSign, FileText, LogOut, Menu, X, TrendingUp, AlertCircle } from 'lucide-react';
+import { LayoutDashboard, DollarSign, FileText, LogOut, Menu, X, TrendingUp, AlertCircle, Bell } from 'lucide-react';
 import { feesAPI } from '../../utils/api';
 import api from '../../utils/api';
 import { toast } from 'sonner';
 import FeeManagementView from './FeeManagementView';
+import ReportsView from './ReportsView';
+import NotificationBell from '../../components/NotificationBell';
 
 const FinanceDashboard = () => {
   const navigate = useNavigate();
