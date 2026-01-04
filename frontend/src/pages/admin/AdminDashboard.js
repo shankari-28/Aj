@@ -11,7 +11,9 @@ import {
   LogOut,
   Menu,
   X,
-  BookOpen
+  BookOpen,
+  Megaphone,
+  FileText
 } from 'lucide-react';
 import { applicationsAPI, studentsAPI, adminAPI } from '../../utils/api';
 import api from '../../utils/api';
@@ -19,6 +21,9 @@ import { toast } from 'sonner';
 import TeacherAssignmentView from './TeacherAssignmentView';
 import AcademicSetupView from './AcademicSetupView';
 import FeeManagementView from '../finance/FeeManagementView';
+import ReportsView from '../finance/ReportsView';
+import AnnouncementsView from './AnnouncementsView';
+import NotificationBell from '../../components/NotificationBell';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
