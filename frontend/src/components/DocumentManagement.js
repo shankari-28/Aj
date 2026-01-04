@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Upload, File, Check, X, Eye } from 'lucide-react';
-import api from '../../utils/api';
+import api from '../utils/api';
 import { toast } from 'sonner';
 
 const DocumentManagement = ({ applicationId, onClose }) => {
