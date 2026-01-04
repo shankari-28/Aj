@@ -1060,6 +1060,451 @@ async def delete_user(user_id: str, current_user: dict = Depends(get_current_use
     
     return {"success": True, "message": "User deleted successfully"}
 
+# ==================== REPORTS MODULE ====================
+
+@api_router.get("/reports/daily-collection")
+async def get_daily_collection_report(
+    date: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get daily fee collection report"""
+    if current_user["role"] not in ["super_admin", "school_admin", "finance_manager"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Default to today if no date provided
+    if not date:
+        date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    
+    # Get all payments for the date
+    payments = await db.fee_payments.find({
+        "payment_status": "paid"
+    }, {"_id": 0}).to_list(10000)
+    
+    # Filter by date (payment_date starts with the date string)
+    daily_payments = [p for p in payments if p.get("payment_date", "").startswith(date)]
+    
+    # Calculate totals by payment mode
+    totals = {"cash": 0, "upi": 0, "bank_transfer": 0, "online": 0}
+    for payment in daily_payments:
+        mode = payment.get("payment_mode", "cash")
+        totals[mode] = totals.get(mode, 0) + payment.get("amount", 0)
+    
+    # Get student details for each payment
+    enriched_payments = []
+    for payment in daily_payments:
+        student = await db.students.find_one({"id": payment["student_id"]}, {"_id": 0})
+        enriched_payments.append({
+            **payment,
+            "student_name": student.get("student_name", "Unknown") if student else "Unknown",
+            "roll_number": student.get("roll_number", "N/A") if student else "N/A",
+            "class": student.get("current_class", "N/A") if student else "N/A"
+        })
+    
+    return {
+        "date": date,
+        "total_collection": sum(totals.values()),
+        "by_payment_mode": totals,
+        "transaction_count": len(daily_payments),
+        "payments": enriched_payments
+    }
+
+@api_router.get("/reports/outstanding-dues")
+async def get_outstanding_dues_report(current_user: dict = Depends(get_current_user)):
+    """Get all students with outstanding dues"""
+    if current_user["role"] not in ["super_admin", "school_admin", "finance_manager"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Get all active students
+    students = await db.students.find({"is_active": True}, {"_id": 0}).to_list(10000)
+    
+    # Get all fee structures
+    structures = await db.fee_structures.find({}, {"_id": 0}).to_list(100)
+    structure_map = {s["standard"]: s for s in structures}
+    
+    outstanding_list = []
+    total_outstanding = 0
+    
+    for student in students:
+        # Get fee structure for student's class
+        structure = structure_map.get(student.get("current_class"))
+        if not structure:
+            continue
+        
+        total_fee = (
+            structure.get("admission_fee", 0) +
+            structure.get("tuition_fee", 0) +
+            structure.get("books_fee", 0) +
+            structure.get("uniform_fee", 0) +
+            structure.get("transport_fee", 0)
+        )
+        
+        # Get paid amount
+        payments = await db.fee_payments.find({
+            "student_id": student["id"],
+            "payment_status": "paid"
+        }, {"_id": 0}).to_list(1000)
+        
+        paid_amount = sum(p.get("amount", 0) for p in payments)
+        due_amount = total_fee - paid_amount
+        
+        if due_amount > 0:
+            outstanding_list.append({
+                "student_id": student["id"],
+                "student_name": student.get("student_name"),
+                "roll_number": student.get("roll_number"),
+                "class": student.get("current_class"),
+                "section": student.get("section"),
+                "total_fee": total_fee,
+                "paid_amount": paid_amount,
+                "due_amount": due_amount,
+                "parent_id": student.get("parent_id")
+            })
+            total_outstanding += due_amount
+    
+    # Sort by due amount descending
+    outstanding_list.sort(key=lambda x: x["due_amount"], reverse=True)
+    
+    return {
+        "total_outstanding": total_outstanding,
+        "students_with_dues": len(outstanding_list),
+        "students": outstanding_list
+    }
+
+@api_router.get("/reports/collection-summary")
+async def get_collection_summary(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get collection summary for a date range"""
+    if current_user["role"] not in ["super_admin", "school_admin", "finance_manager"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Default to current month
+    if not start_date:
+        today = datetime.now(timezone.utc)
+        start_date = today.replace(day=1).strftime("%Y-%m-%d")
+    if not end_date:
+        end_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    
+    # Get all paid payments
+    payments = await db.fee_payments.find({
+        "payment_status": "paid"
+    }, {"_id": 0}).to_list(10000)
+    
+    # Filter by date range
+    filtered_payments = []
+    for p in payments:
+        payment_date = p.get("payment_date", "")[:10]
+        if start_date <= payment_date <= end_date:
+            filtered_payments.append(p)
+    
+    # Group by date
+    daily_totals = {}
+    for p in filtered_payments:
+        date = p.get("payment_date", "")[:10]
+        if date not in daily_totals:
+            daily_totals[date] = {"total": 0, "count": 0}
+        daily_totals[date]["total"] += p.get("amount", 0)
+        daily_totals[date]["count"] += 1
+    
+    # Calculate totals by payment mode
+    mode_totals = {"cash": 0, "upi": 0, "bank_transfer": 0, "online": 0}
+    for p in filtered_payments:
+        mode = p.get("payment_mode", "cash")
+        mode_totals[mode] = mode_totals.get(mode, 0) + p.get("amount", 0)
+    
+    return {
+        "start_date": start_date,
+        "end_date": end_date,
+        "total_collection": sum(p.get("amount", 0) for p in filtered_payments),
+        "transaction_count": len(filtered_payments),
+        "by_payment_mode": mode_totals,
+        "daily_breakdown": [
+            {"date": date, **data}
+            for date, data in sorted(daily_totals.items())
+        ]
+    }
+
+# ==================== COMMUNICATION/ANNOUNCEMENTS MODULE ====================
+
+class Announcement(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    title: str
+    message: str
+    target_roles: List[str] = []  # Empty means all
+    target_classes: List[str] = []  # Empty means all
+    created_by: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    is_active: bool = True
+
+class AnnouncementCreateRequest(BaseModel):
+    title: str
+    message: str
+    target_roles: List[str] = []
+    target_classes: List[str] = []
+
+@api_router.post("/announcements")
+async def create_announcement(req: AnnouncementCreateRequest, current_user: dict = Depends(get_current_user)):
+    """Create a new announcement and send notifications"""
+    if current_user["role"] not in ["super_admin", "school_admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    announcement_data = {
+        "id": str(uuid.uuid4()),
+        "title": req.title,
+        "message": req.message,
+        "target_roles": req.target_roles,
+        "target_classes": req.target_classes,
+        "created_by": current_user["id"],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "is_active": True
+    }
+    
+    await db.announcements.insert_one(announcement_data)
+    
+    # Find target users and create notifications
+    query = {"is_active": True}
+    if req.target_roles:
+        query["role"] = {"$in": req.target_roles}
+    
+    users = await db.users.find(query, {"_id": 0}).to_list(10000)
+    
+    # If targeting specific classes, filter parents
+    if req.target_classes:
+        # Get students in target classes
+        students = await db.students.find({
+            "current_class": {"$in": req.target_classes},
+            "is_active": True
+        }, {"_id": 0}).to_list(10000)
+        parent_ids = {s.get("parent_id") for s in students}
+        users = [u for u in users if u["role"] != "parent" or u["id"] in parent_ids]
+    
+    # Create notifications for all target users
+    notifications = []
+    for user in users:
+        notifications.append({
+            "id": str(uuid.uuid4()),
+            "user_id": user["id"],
+            "title": req.title,
+            "message": req.message,
+            "announcement_id": announcement_data["id"],
+            "is_read": False,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+    
+    if notifications:
+        await db.notifications.insert_many(notifications)
+    
+    return {
+        "success": True,
+        "announcement_id": announcement_data["id"],
+        "notifications_sent": len(notifications)
+    }
+
+@api_router.get("/announcements")
+async def get_announcements(current_user: dict = Depends(get_current_user)):
+    """Get all announcements (admin) or relevant announcements (other roles)"""
+    if current_user["role"] in ["super_admin", "school_admin"]:
+        announcements = await db.announcements.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    else:
+        # Get announcements targeting this user's role or all
+        announcements = await db.announcements.find({
+            "$or": [
+                {"target_roles": {"$size": 0}},
+                {"target_roles": current_user["role"]}
+            ],
+            "is_active": True
+        }, {"_id": 0}).sort("created_at", -1).to_list(100)
+    
+    return announcements
+
+@api_router.delete("/announcements/{announcement_id}")
+async def delete_announcement(announcement_id: str, current_user: dict = Depends(get_current_user)):
+    """Delete/deactivate an announcement"""
+    if current_user["role"] not in ["super_admin", "school_admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    result = await db.announcements.update_one(
+        {"id": announcement_id},
+        {"$set": {"is_active": False}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Announcement not found")
+    
+    return {"success": True, "message": "Announcement deleted"}
+
+@api_router.get("/notifications/unread-count")
+async def get_unread_count(current_user: dict = Depends(get_current_user)):
+    """Get count of unread notifications"""
+    count = await db.notifications.count_documents({
+        "user_id": current_user["id"],
+        "is_read": False
+    })
+    return {"unread_count": count}
+
+@api_router.patch("/notifications/mark-all-read")
+async def mark_all_notifications_read(current_user: dict = Depends(get_current_user)):
+    """Mark all notifications as read"""
+    result = await db.notifications.update_many(
+        {"user_id": current_user["id"], "is_read": False},
+        {"$set": {"is_read": True}}
+    )
+    return {"success": True, "marked_count": result.modified_count}
+
+# ==================== DOCUMENT UPLOAD MODULE ====================
+
+class DocumentType(str, Enum):
+    BIRTH_CERTIFICATE = "birth_certificate"
+    AADHAAR_CARD = "aadhaar_card"
+    PHOTO = "photo"
+    TRANSFER_CERTIFICATE = "transfer_certificate"
+    MEDICAL_CERTIFICATE = "medical_certificate"
+    ADDRESS_PROOF = "address_proof"
+    OTHER = "other"
+
+class DocumentUploadRequest(BaseModel):
+    application_id: str
+    document_type: DocumentType
+    document_name: str
+    file_data: str  # Base64 encoded file
+    file_type: str  # mime type
+
+@api_router.post("/documents/upload-file")
+async def upload_document_file(req: DocumentUploadRequest, current_user: dict = Depends(get_current_user)):
+    """Upload a document file (base64 encoded)"""
+    import base64
+    
+    # Validate file size (max 5MB)
+    try:
+        file_bytes = base64.b64decode(req.file_data)
+        if len(file_bytes) > 5 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="File size exceeds 5MB limit")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Invalid file data")
+    
+    doc_data = {
+        "id": str(uuid.uuid4()),
+        "application_id": req.application_id,
+        "document_type": req.document_type,
+        "document_name": req.document_name,
+        "file_data": req.file_data,
+        "file_type": req.file_type,
+        "status": "pending",
+        "uploaded_by": current_user["id"],
+        "uploaded_at": datetime.now(timezone.utc).isoformat(),
+        "verified_by": None,
+        "verified_at": None
+    }
+    
+    await db.documents.insert_one(doc_data)
+    
+    return {
+        "success": True,
+        "document_id": doc_data["id"],
+        "message": "Document uploaded successfully"
+    }
+
+@api_router.get("/documents/application/{application_id}")
+async def get_application_documents_v2(application_id: str, current_user: dict = Depends(get_current_user)):
+    """Get all documents for an application"""
+    documents = await db.documents.find(
+        {"application_id": application_id},
+        {"_id": 0, "file_data": 0}  # Exclude file_data for listing
+    ).to_list(100)
+    return documents
+
+@api_router.get("/documents/download/{document_id}")
+async def download_document(document_id: str, current_user: dict = Depends(get_current_user)):
+    """Get document with file data for download"""
+    document = await db.documents.find_one({"id": document_id}, {"_id": 0})
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return document
+
+@api_router.patch("/documents/{document_id}/verify")
+async def verify_document(document_id: str, status: str, current_user: dict = Depends(get_current_user)):
+    """Verify or reject a document"""
+    if current_user["role"] not in ["super_admin", "school_admin", "admission_officer"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    if status not in ["verified", "rejected"]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    
+    result = await db.documents.update_one(
+        {"id": document_id},
+        {"$set": {
+            "status": status,
+            "verified_by": current_user["id"],
+            "verified_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    return {"success": True, "message": f"Document {status}"}
+
+@api_router.delete("/documents/{document_id}")
+async def delete_document(document_id: str, current_user: dict = Depends(get_current_user)):
+    """Delete a document"""
+    result = await db.documents.delete_one({"id": document_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return {"success": True, "message": "Document deleted"}
+
+# ==================== FEE REMINDERS ====================
+
+@api_router.post("/notifications/fee-reminder")
+async def send_fee_reminders(current_user: dict = Depends(get_current_user)):
+    """Send fee reminders to parents with outstanding dues"""
+    if current_user["role"] not in ["super_admin", "school_admin", "finance_manager"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Get outstanding dues report
+    students = await db.students.find({"is_active": True}, {"_id": 0}).to_list(10000)
+    structures = await db.fee_structures.find({}, {"_id": 0}).to_list(100)
+    structure_map = {s["standard"]: s for s in structures}
+    
+    reminders_sent = 0
+    
+    for student in students:
+        structure = structure_map.get(student.get("current_class"))
+        if not structure:
+            continue
+        
+        total_fee = sum([
+            structure.get("admission_fee", 0),
+            structure.get("tuition_fee", 0),
+            structure.get("books_fee", 0),
+            structure.get("uniform_fee", 0),
+            structure.get("transport_fee", 0)
+        ])
+        
+        payments = await db.fee_payments.find({
+            "student_id": student["id"],
+            "payment_status": "paid"
+        }, {"_id": 0}).to_list(1000)
+        
+        paid = sum(p.get("amount", 0) for p in payments)
+        due = total_fee - paid
+        
+        if due > 0 and student.get("parent_id"):
+            notification = {
+                "id": str(uuid.uuid4()),
+                "user_id": student["parent_id"],
+                "title": "Fee Payment Reminder",
+                "message": f"Dear Parent, a fee amount of ₹{due:,} is pending for {student['student_name']}. Please clear the dues at the earliest.",
+                "is_read": False,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.notifications.insert_one(notification)
+            reminders_sent += 1
+    
+    return {"success": True, "reminders_sent": reminders_sent}
+
 # Include the router in the main app
 app.include_router(api_router)
 
