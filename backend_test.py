@@ -384,6 +384,119 @@ class KidScholarsAPITester:
         )
         return success
 
+    def test_get_students(self):
+        """Test getting all students"""
+        if not self.admin_token:
+            return False
+        
+        success, response = self.run_test(
+            "Get All Students",
+            "GET",
+            "students",
+            200,
+            headers={'Authorization': f'Bearer {self.admin_token}'}
+        )
+        
+        if success and response:
+            self.test_data['all_students'] = response
+            print(f"Found {len(response)} total students")
+        return success
+
+    def test_create_fee_structure(self):
+        """Test creating fee structure"""
+        if not self.admin_token:
+            return False
+        
+        success, response = self.run_test(
+            "Create Fee Structure",
+            "POST",
+            "fees/structure",
+            200,
+            data={
+                "standard": "lkg",
+                "admission_fee": 5000,
+                "tuition_fee": 20000,
+                "books_fee": 3000,
+                "uniform_fee": 2000,
+                "transport_fee": 0,
+                "academic_year": "2025-2026"
+            },
+            headers={'Authorization': f'Bearer {self.admin_token}'}
+        )
+        
+        if success:
+            print("Fee structure created successfully")
+        return success
+
+    def test_get_fee_structures(self):
+        """Test getting all fee structures"""
+        if not self.admin_token:
+            return False
+        
+        success, response = self.run_test(
+            "Get Fee Structures",
+            "GET",
+            "fees/structure",
+            200,
+            headers={'Authorization': f'Bearer {self.admin_token}'}
+        )
+        
+        if success and response:
+            self.test_data['fee_structures'] = response
+            print(f"Found {len(response)} fee structures")
+        return success
+
+    def test_record_offline_payment(self):
+        """Test recording offline payment"""
+        if not self.admin_token or not self.test_data.get('all_students'):
+            return False
+        
+        students = self.test_data['all_students']
+        if not students:
+            print("No students found for payment test")
+            return True
+        
+        # Use the first student for payment test
+        student_id = students[0]['id']
+        
+        success, response = self.run_test(
+            "Record Offline Payment",
+            "POST",
+            "fee-payments/record",
+            200,
+            data={
+                "student_id": student_id,
+                "amount": 10000,
+                "payment_mode": "cash",
+                "payment_status": "paid"
+            },
+            headers={'Authorization': f'Bearer {self.admin_token}'}
+        )
+        
+        if success:
+            self.test_data['test_student_id'] = student_id
+            print(f"Payment recorded for student: {student_id}")
+        return success
+
+    def test_get_student_payments(self):
+        """Test getting student payments"""
+        if not self.admin_token or not self.test_data.get('test_student_id'):
+            return False
+        
+        student_id = self.test_data['test_student_id']
+        
+        success, response = self.run_test(
+            "Get Student Payments",
+            "GET",
+            f"fees/payments/{student_id}",
+            200,
+            headers={'Authorization': f'Bearer {self.admin_token}'}
+        )
+        
+        if success and response:
+            print(f"Found {len(response)} payments for student")
+        return success
+
 def main():
     print("🚀 Starting Kid Scholars Phase 2 API Testing...")
     tester = KidScholarsAPITester()
