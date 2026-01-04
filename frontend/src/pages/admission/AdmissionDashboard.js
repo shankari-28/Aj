@@ -13,6 +13,7 @@ const AdmissionDashboard = () => {
   const [applications, setApplications] = useState([]);
   const [selectedApp, setSelectedApp] = useState(null);
   const [showAdmitModal, setShowAdmitModal] = useState(false);
+  const [showDocuments, setShowDocuments] = useState(false);
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
