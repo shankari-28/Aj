@@ -104,7 +104,10 @@ const FinanceDashboard = () => {
 
       <div className="flex-1 overflow-auto">
         <div className="bg-white shadow-sm border-b p-6">
-          <h2 className="text-2xl font-bold text-[#1e3a8a]">Welcome, {user?.full_name}</h2>
+          <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-bold text-[#1e3a8a]">Welcome, {user?.full_name}</h2>
+            <NotificationBell />
+          </div>
         </div>
 
         <div className="p-6">
