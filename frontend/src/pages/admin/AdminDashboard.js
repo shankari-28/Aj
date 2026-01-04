@@ -74,6 +74,8 @@ const AdminDashboard = () => {
     { icon: UserPlus, label: 'Admission Management', path: '/admin/admissions' },
     { icon: GraduationCap, label: 'Teacher Management', path: '/admin/teachers' },
     { icon: DollarSign, label: 'Finance Management', path: '/admin/finance' },
+    { icon: FileText, label: 'Reports', path: '/admin/reports' },
+    { icon: Megaphone, label: 'Announcements', path: '/admin/announcements' },
     { icon: Package, label: 'Inventory Management', path: '/admin/inventory' },
     { icon: Users, label: 'User Management', path: '/admin/users' },
   ];
