@@ -497,6 +497,247 @@ class KidScholarsAPITester:
             print(f"Found {len(response)} payments for student")
         return success
 
+    # ==================== PHASE 5 TESTS ====================
+    
+    def test_daily_collection_report(self):
+        """Test daily collection report"""
+        if not self.admin_token:
+            return False
+        
+        today = datetime.now().strftime("%Y-%m-%d")
+        
+        success, response = self.run_test(
+            "Daily Collection Report",
+            "GET",
+            f"reports/daily-collection?date={today}",
+            200,
+            headers={'Authorization': f'Bearer {self.admin_token}'}
+        )
+        
+        if success and response:
+            print(f"Daily collection: ₹{response.get('total_collection', 0)}")
+            print(f"Transactions: {response.get('transaction_count', 0)}")
+            self.test_data['daily_collection'] = response
+        return success
+
+    def test_outstanding_dues_report(self):
+        """Test outstanding dues report"""
+        if not self.admin_token:
+            return False
+        
+        success, response = self.run_test(
+            "Outstanding Dues Report",
+            "GET",
+            "reports/outstanding-dues",
+            200,
+            headers={'Authorization': f'Bearer {self.admin_token}'}
+        )
+        
+        if success and response:
+            print(f"Total outstanding: ₹{response.get('total_outstanding', 0)}")
+            print(f"Students with dues: {response.get('students_with_dues', 0)}")
+            self.test_data['outstanding_dues'] = response
+        return success
+
+    def test_collection_summary_report(self):
+        """Test collection summary report"""
+        if not self.admin_token:
+            return False
+        
+        today = datetime.now().strftime("%Y-%m-%d")
+        start_date = "2025-01-01"
+        
+        success, response = self.run_test(
+            "Collection Summary Report",
+            "GET",
+            f"reports/collection-summary?start_date={start_date}&end_date={today}",
+            200,
+            headers={'Authorization': f'Bearer {self.admin_token}'}
+        )
+        
+        if success and response:
+            print(f"Period collection: ₹{response.get('total_collection', 0)}")
+            print(f"Daily breakdown entries: {len(response.get('daily_breakdown', []))}")
+        return success
+
+    def test_create_announcement(self):
+        """Test creating announcement"""
+        if not self.admin_token:
+            return False
+        
+        success, response = self.run_test(
+            "Create Announcement",
+            "POST",
+            "announcements",
+            200,
+            data={
+                "title": "Test Announcement",
+                "message": "This is a test message for Phase 5 testing",
+                "target_roles": ["parent"],
+                "target_classes": ["lkg"]
+            },
+            headers={'Authorization': f'Bearer {self.admin_token}'}
+        )
+        
+        if success and response:
+            self.test_data['announcement_id'] = response.get('announcement_id')
+            print(f"Announcement created: {response.get('announcement_id')}")
+            print(f"Notifications sent: {response.get('notifications_sent', 0)}")
+        return success
+
+    def test_get_announcements(self):
+        """Test getting announcements"""
+        if not self.admin_token:
+            return False
+        
+        success, response = self.run_test(
+            "Get Announcements",
+            "GET",
+            "announcements",
+            200,
+            headers={'Authorization': f'Bearer {self.admin_token}'}
+        )
+        
+        if success and response:
+            print(f"Found {len(response)} announcements")
+            # Verify our test announcement exists
+            test_announcement = None
+            for ann in response:
+                if ann.get('title') == 'Test Announcement':
+                    test_announcement = ann
+                    break
+            if test_announcement:
+                print("✅ Test announcement found in list")
+            else:
+                print("⚠️ Test announcement not found in list")
+        return success
+
+    def test_unread_notifications_count(self):
+        """Test getting unread notifications count"""
+        if not self.admin_token:
+            return False
+        
+        success, response = self.run_test(
+            "Unread Notifications Count",
+            "GET",
+            "notifications/unread-count",
+            200,
+            headers={'Authorization': f'Bearer {self.admin_token}'}
+        )
+        
+        if success and response:
+            print(f"Unread notifications: {response.get('unread_count', 0)}")
+        return success
+
+    def test_fee_reminder_notifications(self):
+        """Test sending fee reminder notifications"""
+        if not self.admin_token:
+            return False
+        
+        success, response = self.run_test(
+            "Send Fee Reminders",
+            "POST",
+            "notifications/fee-reminder",
+            200,
+            headers={'Authorization': f'Bearer {self.admin_token}'}
+        )
+        
+        if success and response:
+            print(f"Fee reminders sent: {response.get('reminders_sent', 0)}")
+        return success
+
+    def test_upload_document(self):
+        """Test document upload"""
+        if not self.admin_token:
+            return False
+        
+        # First get an existing application ID
+        applications_success, applications = self.run_test(
+            "Get Applications for Document Test",
+            "GET",
+            "applications",
+            200,
+            headers={'Authorization': f'Bearer {self.admin_token}'}
+        )
+        
+        if not applications_success or not applications:
+            print("❌ No applications found for document test")
+            return False
+        
+        application_id = applications[0]['id']
+        self.test_data['test_application_id'] = application_id
+        
+        # Create a small test image in base64 (1x1 pixel PNG)
+        test_image_base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+        
+        success, response = self.run_test(
+            "Upload Document",
+            "POST",
+            "documents/upload-file",
+            200,
+            data={
+                "application_id": application_id,
+                "document_type": "birth_certificate",
+                "document_name": "test_birth_certificate.png",
+                "file_data": test_image_base64,
+                "file_type": "image/png"
+            },
+            headers={'Authorization': f'Bearer {self.admin_token}'}
+        )
+        
+        if success and response:
+            self.test_data['document_id'] = response.get('document_id')
+            print(f"Document uploaded: {response.get('document_id')}")
+        return success
+
+    def test_get_application_documents(self):
+        """Test getting application documents"""
+        if not self.admin_token or not self.test_data.get('test_application_id'):
+            return False
+        
+        application_id = self.test_data['test_application_id']
+        
+        success, response = self.run_test(
+            "Get Application Documents",
+            "GET",
+            f"documents/application/{application_id}",
+            200,
+            headers={'Authorization': f'Bearer {self.admin_token}'}
+        )
+        
+        if success and response:
+            print(f"Found {len(response)} documents for application")
+            # Verify our test document exists
+            test_doc = None
+            for doc in response:
+                if doc.get('document_name') == 'test_birth_certificate.png':
+                    test_doc = doc
+                    break
+            if test_doc:
+                print("✅ Test document found in application documents")
+            else:
+                print("⚠️ Test document not found in application documents")
+        return success
+
+    def test_verify_document(self):
+        """Test document verification"""
+        if not self.admin_token or not self.test_data.get('document_id'):
+            return False
+        
+        document_id = self.test_data['document_id']
+        
+        success, response = self.run_test(
+            "Verify Document",
+            "PATCH",
+            f"documents/{document_id}/verify?status=verified",
+            200,
+            headers={'Authorization': f'Bearer {self.admin_token}'}
+        )
+        
+        if success:
+            print("✅ Document verified successfully")
+        return success
+
 def main():
     print("🚀 Starting Kid Scholars Fee Management API Testing...")
     tester = KidScholarsAPITester()
