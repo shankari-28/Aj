@@ -196,13 +196,7 @@ const FinanceDashboard = () => {
 
           {activeView === 'fees' && <FeeManagementView />}
 
-          {activeView === 'reports' && (
-            <div className="bg-white rounded-xl shadow-md p-12 text-center">
-              <FileText className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-              <h3 className="text-xl font-bold text-gray-600 mb-2">Reports Module</h3>
-              <p className="text-gray-500">Coming soon - Daily collection reports, outstanding dues, and more.</p>
-            </div>
-          )}
+          {activeView === 'reports' && <ReportsView />}
         </div>
       </div>
     </div>
