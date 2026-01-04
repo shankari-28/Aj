@@ -128,7 +128,7 @@ SMTP_PASSWORD=
 
 ### Frontend Environment (`/app/frontend/.env`)
 ```
-REACT_APP_BACKEND_URL=https://learninghub-27.preview.emergentagent.com
+REACT_APP_BACKEND_URL=https://youngminds-admin.preview.emergentagent.com
 ```
 
 ## 🧪 Testing Results
