@@ -117,9 +117,6 @@ const LoginModal = ({ onClose }) => {
             {loading ? 'Logging in...' : 'Login'}
           </button>
 
-          <p className="text-xs text-center text-gray-500 mt-4">
-            Default Admin: shankarithangaraj01@gmail.com / admin123
-          </p>
         </form>
       </div>
     </div>

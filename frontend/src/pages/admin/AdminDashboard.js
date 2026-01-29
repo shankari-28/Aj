@@ -13,13 +13,15 @@ import {
   X,
   BookOpen,
   Megaphone,
-  FileText
+  FileText,
+  Image
 } from 'lucide-react';
 import { applicationsAPI, studentsAPI, adminAPI } from '../../utils/api';
 import api from '../../utils/api';
 import { toast } from 'sonner';
 import TeacherAssignmentView from './TeacherAssignmentView';
 import AcademicSetupView from './AcademicSetupView';
+import GalleryManagementView from './GalleryManagementView';
 import FeeManagementView from '../finance/FeeManagementView';
 import ReportsView from '../finance/ReportsView';
 import AnnouncementsView from './AnnouncementsView';
@@ -76,6 +78,7 @@ const AdminDashboard = () => {
     { icon: DollarSign, label: 'Finance Management', path: '/admin/finance' },
     { icon: FileText, label: 'Reports', path: '/admin/reports' },
     { icon: Megaphone, label: 'Announcements', path: '/admin/announcements' },
+    { icon: Image, label: 'Gallery Management', path: '/admin/gallery' },
     { icon: Package, label: 'Inventory Management', path: '/admin/inventory' },
     { icon: Users, label: 'User Management', path: '/admin/users' },
   ];
@@ -141,6 +144,7 @@ const AdminDashboard = () => {
             <Route path="/finance" element={<FeeManagementView />} />
             <Route path="/reports" element={<ReportsView />} />
             <Route path="/announcements" element={<AnnouncementsView />} />
+            <Route path="/gallery" element={<GalleryManagementView />} />
             <Route path="/inventory" element={<div>Inventory Management (Coming Soon)</div>} />
             <Route path="/users" element={<UserManagement />} />
           </Routes>
@@ -225,8 +229,15 @@ const AcademicSetup = () => {
 
 const AdmissionManagement = () => {
   const [applications, setApplications] = useState([]);
-  const [selectedApp, setSelectedApp] = useState(null);
+  const [admitApp, setAdmitApp] = useState(null);
+  const [viewApp, setViewApp] = useState(null);
   const [showAdmitModal, setShowAdmitModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [holdDialogOpen, setHoldDialogOpen] = useState(false);
+  const [holdMessage, setHoldMessage] = useState('');
+  const [holdAppId, setHoldAppId] = useState(null);
 
   useEffect(() => {
     loadApplications();
@@ -243,17 +254,120 @@ const AdmissionManagement = () => {
 
   const handleStatusUpdate = async (appId, newStatus) => {
     try {
-      await applicationsAPI.update(appId, { status: newStatus });
-      toast.success('Status updated successfully!');
+      if (newStatus === 'on_hold') {
+        setHoldAppId(appId);
+        setHoldMessage('');
+        setHoldDialogOpen(true);
+        return;
+      }
+      if (newStatus === 'rejected') {
+        const ok = window.confirm('Are you sure you want to mark this application as Rejected? An email will be sent to the applicant.');
+        if (!ok) return;
+      }
+
+      const response = await applicationsAPI.update(appId, { status: newStatus });
+      if (response.data?.email_sent) {
+        toast.success('Status updated and email notification sent to the applicant!');
+      } else {
+        toast.success('Status updated successfully!');
+      }
       loadApplications();
     } catch (error) {
-      toast.error('Failed to update status');
+      toast.error(error.response?.data?.detail || 'Failed to update status');
+    }
+  };
+
+  const submitHold = async () => {
+    const msg = holdMessage.trim();
+    if (!msg) {
+      toast.error('Please enter a message for Hold');
+      return;
+    }
+    if (!holdAppId) return;
+
+    try {
+      const response = await applicationsAPI.update(holdAppId, { status: 'on_hold', remarks: msg });
+      if (response.data?.email_sent) {
+        toast.success('Application put on Hold and email sent to the applicant.');
+      } else {
+        toast.success('Application put on Hold.');
+      }
+      setHoldDialogOpen(false);
+      setHoldMessage('');
+      setHoldAppId(null);
+      loadApplications();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to put application on hold');
     }
   };
 
   const handleAdmit = (app) => {
-    setSelectedApp(app);
+    setAdmitApp(app);
     setShowAdmitModal(true);
+  };
+
+  const handleView = (app) => {
+    setViewApp(app);
+    setShowViewModal(true);
+  };
+
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const normalizeStatus = (status) => (status || '').toLowerCase();
+
+  const getSortedAndFilteredApplications = () => {
+    let filtered = [...applications];
+    
+    // Filter by status
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(app => normalizeStatus(app.status) === filterStatus);
+    }
+    
+    // Sort
+    if (sortConfig.key) {
+      filtered.sort((a, b) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+        
+        // Handle different data types
+        if (sortConfig.key === 'applying_for_class') {
+          aValue = aValue?.toLowerCase() || '';
+          bValue = bValue?.toLowerCase() || '';
+        } else if (sortConfig.key === 'student_name') {
+          aValue = aValue?.toLowerCase() || '';
+          bValue = bValue?.toLowerCase() || '';
+        } else if (sortConfig.key === 'reference_number') {
+          aValue = aValue || '';
+          bValue = bValue || '';
+        } else if (sortConfig.key === 'mobile') {
+          aValue = aValue || '';
+          bValue = bValue || '';
+        }
+        
+        if (aValue < bValue) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    
+    return filtered;
+  };
+
+  const getSortIcon = (key) => {
+    if (sortConfig.key !== key) {
+      return '↕';
+    }
+    return sortConfig.direction === 'asc' ? '↑' : '↓';
   };
 
   const getStatusBadge = (status) => {
@@ -274,24 +388,83 @@ const AdmissionManagement = () => {
 
   return (
     <div>
-      <h3 className="text-2xl font-bold text-[#1e3a8a] mb-6\">Admission Management</h3>
+      <h3 className="text-2xl font-bold text-[#1e3a8a] mb-6">Admission Management</h3>
+      
+      {/* Filter and Stats Section */}
+      <div className="bg-white rounded-xl shadow-md p-4 mb-4">
+        <div className="flex flex-wrap gap-4 items-center justify-between">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-700">Filter by Status:</label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="border-2 border-gray-300 rounded-lg px-4 py-2 bg-white hover:border-[#f97316] focus:border-[#f97316] focus:ring-2 focus:ring-[#f97316]/20"
+            >
+              <option value="all">All Applications ({applications.length})</option>
+              <option value="enquiry_new">🆕 New Enquiry ({applications.filter(a => normalizeStatus(a.status) === 'enquiry_new').length})</option>
+              <option value="enquiry_hot">🔥 Hot Lead ({applications.filter(a => normalizeStatus(a.status) === 'enquiry_hot').length})</option>
+              <option value="enquiry_warm">⚡ Warm Lead ({applications.filter(a => normalizeStatus(a.status) === 'enquiry_warm').length})</option>
+              <option value="enquiry_cold">❄️ Cold Lead ({applications.filter(a => normalizeStatus(a.status) === 'enquiry_cold').length})</option>
+              <option value="documents_pending">📄 Documents Pending ({applications.filter(a => normalizeStatus(a.status) === 'documents_pending').length})</option>
+              <option value="documents_verified">✅ Documents Verified ({applications.filter(a => normalizeStatus(a.status) === 'documents_verified').length})</option>
+              <option value="payment_pending">💳 Payment Pending ({applications.filter(a => normalizeStatus(a.status) === 'payment_pending').length})</option>
+              <option value="admitted">🎓 Admitted ({applications.filter(a => normalizeStatus(a.status) === 'admitted').length})</option>
+              <option value="on_hold">⏸️ On Hold ({applications.filter(a => normalizeStatus(a.status) === 'on_hold').length})</option>
+              <option value="rejected">❌ Rejected ({applications.filter(a => normalizeStatus(a.status) === 'rejected').length})</option>
+            </select>
+          </div>
+          <div className="text-sm text-gray-600">
+            Showing {getSortedAndFilteredApplications().length} of {applications.length} applications
+          </div>
+        </div>
+      </div>
+
       <div className="bg-white rounded-xl shadow-md p-6">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b">
-                <th className="text-left p-3">Reference</th>
-                <th className="text-left p-3">Student</th>
-                <th className="text-left p-3">Class</th>
-                <th className="text-left p-3">Contact</th>
-                <th className="text-left p-3">Current Status</th>
+                <th 
+                  className="text-left p-3 cursor-pointer hover:bg-gray-50 select-none"
+                  onClick={() => handleSort('reference_number')}
+                >
+                  Reference {getSortIcon('reference_number')}
+                </th>
+                <th 
+                  className="text-left p-3 cursor-pointer hover:bg-gray-50 select-none"
+                  onClick={() => handleSort('student_name')}
+                >
+                  Student {getSortIcon('student_name')}
+                </th>
+                <th 
+                  className="text-left p-3 cursor-pointer hover:bg-gray-50 select-none"
+                  onClick={() => handleSort('applying_for_class')}
+                >
+                  Class {getSortIcon('applying_for_class')}
+                </th>
+                <th 
+                  className="text-left p-3 cursor-pointer hover:bg-gray-50 select-none"
+                  onClick={() => handleSort('mobile')}
+                >
+                  Contact {getSortIcon('mobile')}
+                </th>
+                <th 
+                  className="text-left p-3 cursor-pointer hover:bg-gray-50 select-none"
+                  onClick={() => handleSort('status')}
+                >
+                  Current Status {getSortIcon('status')}
+                </th>
+                <th className="text-left p-3">Docs Link</th>
+                <th className="text-left p-3">Lead Status</th>
                 <th className="text-left p-3">Change Status</th>
                 <th className="text-left p-3">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {applications.map((app) => {
+              {getSortedAndFilteredApplications().map((app) => {
                 const statusBadge = getStatusBadge(app.status);
+                const isLeadStatus = ['enquiry_new', 'enquiry_hot', 'enquiry_warm', 'enquiry_cold'].includes(app.status);
+                
                 return (
                   <tr key={app.id} className="border-b hover:bg-gray-50">
                     <td className="p-3 font-mono text-sm">{app.reference_number}</td>
@@ -303,35 +476,51 @@ const AdmissionManagement = () => {
                         {statusBadge.label}
                       </span>
                     </td>
+                    <td className="p-3 text-sm">
+                      {app.documents_link ? (
+                        <a
+                          href={app.documents_link}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-blue-600 hover:underline"
+                        >
+                          View link
+                        </a>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
                     <td className="p-3">
                       <select
-                        value={app.status}
-                        onChange={(e) => handleStatusUpdate(app.id, e.target.value)}
+                        value={isLeadStatus ? app.status : ''}
+                        onChange={(e) => e.target.value && handleStatusUpdate(app.id, e.target.value)}
                         className="w-full text-sm border-2 border-gray-300 rounded-lg px-3 py-2 bg-white hover:border-[#f97316] focus:border-[#f97316] focus:ring-2 focus:ring-[#f97316]/20 cursor-pointer"
                       >
-                        <optgroup label="Lead Status">
-                          <option value="enquiry_new">🆕 New Enquiry</option>
-                          <option value="enquiry_hot">🔥 Hot Lead</option>
-                          <option value="enquiry_warm">⚡ Warm Lead</option>
-                          <option value="enquiry_cold">❄️ Cold Lead</option>
-                        </optgroup>
-                        <optgroup label="Document Status">
-                          <option value="documents_pending">📄 Documents Pending</option>
-                          <option value="documents_verified">✅ Documents Verified</option>
-                        </optgroup>
-                        <optgroup label="Payment & Admission">
-                          <option value="payment_pending">💳 Payment Pending</option>
-                          <option value="admitted">🎓 Admitted</option>
-                        </optgroup>
-                        <optgroup label="Other">
-                          <option value="on_hold">⏸️ On Hold</option>
-                          <option value="rejected">❌ Rejected</option>
-                        </optgroup>
+                        <option value="">--</option>
+                        <option value="enquiry_new">🆕 New Enquiry</option>
+                        <option value="enquiry_hot">🔥 Hot Lead</option>
+                        <option value="enquiry_warm">⚡ Warm Lead</option>
+                        <option value="enquiry_cold">❄️ Cold Lead</option>
+                      </select>
+                    </td>
+                    <td className="p-3">
+                      <select
+                        value={!isLeadStatus ? app.status : ''}
+                        onChange={(e) => e.target.value && handleStatusUpdate(app.id, e.target.value)}
+                        className="w-full text-sm border-2 border-gray-300 rounded-lg px-3 py-2 bg-white hover:border-[#f97316] focus:border-[#f97316] focus:ring-2 focus:ring-[#f97316]/20 cursor-pointer"
+                      >
+                        <option value="">--</option>
+                        <option value="documents_pending">📄 Documents Pending</option>
+                        <option value="documents_verified">✅ Documents Verified</option>
+                        <option value="payment_pending">💳 Payment Pending</option>
+                        <option value="admitted">🎓 Admitted</option>
+                        <option value="on_hold">⏸️ On Hold</option>
+                        <option value="rejected">❌ Rejected</option>
                       </select>
                     </td>
                     <td className="p-3">
                       <button 
-                        onClick={() => handleAdmit(app)}
+                        onClick={() => handleView(app)}
                         className="text-blue-600 hover:underline text-sm mr-3"
                       >
                         View
@@ -354,7 +543,7 @@ const AdmissionManagement = () => {
       </div>
 
       {/* Admit Student Modal - reuse from Admission Dashboard */}
-      {showAdmitModal && selectedApp && (
+      {showAdmitModal && admitApp && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowAdmitModal(false)}>
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
             <div className="bg-[#1e3a8a] text-white p-6 rounded-t-2xl">
@@ -363,21 +552,22 @@ const AdmissionManagement = () => {
 
             <div className="p-6">
               <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-                <p className="font-semibold text-[#1e3a8a]">{selectedApp.student_name}</p>
-                <p className="text-sm text-gray-600">Class: {selectedApp.applying_for_class?.replace('_', ' ').toUpperCase()}</p>
-                <p className="text-sm text-gray-600">Parent: {selectedApp.parent_name}</p>
+                <p className="font-semibold text-[#1e3a8a]">{admitApp.student_name}</p>
+                <p className="text-sm text-gray-600">Class: {admitApp.applying_for_class?.replace('_', ' ').toUpperCase()}</p>
+                <p className="text-sm text-gray-600">Parent: {admitApp.parent_name}</p>
               </div>
 
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 try {
                   const formData = new FormData(e.target);
-                  await api.post(`/applications/${selectedApp.id}/admit`, {
+                  await api.post(`/applications/${admitApp.id}/admit`, {
                     section: formData.get('section'),
                     academic_year: formData.get('academic_year')
                   });
                   toast.success('Student admitted successfully!');
                   setShowAdmitModal(false);
+                  setAdmitApp(null);
                   loadApplications();
                 } catch (error) {
                   toast.error('Failed to admit student');
@@ -406,7 +596,10 @@ const AdmissionManagement = () => {
                 <div className="flex gap-3">
                   <button
                     type="button"
-                    onClick={() => setShowAdmitModal(false)}
+                    onClick={() => {
+                      setShowAdmitModal(false);
+                      setAdmitApp(null);
+                    }}
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
                   >
                     Cancel
@@ -419,6 +612,132 @@ const AdmissionManagement = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Application Details Modal */}
+      {showViewModal && viewApp && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowViewModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-[#1e3a8a] text-white p-6 rounded-t-2xl flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-bold">Application Details</h2>
+                <p className="text-sm text-blue-100 mt-1">
+                  Ref: <span className="font-mono font-semibold">{viewApp.reference_number}</span>
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowViewModal(false);
+                  setViewApp(null);
+                }}
+                className="text-white/90 hover:text-white"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Basic Info */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="bg-gray-50 border rounded-xl p-4">
+                  <h3 className="font-semibold text-gray-900 mb-3">Student Information</h3>
+                  <div className="space-y-2 text-sm">
+                    <div><span className="text-gray-500">Branch:</span> <span className="font-medium">{viewApp.branch || '—'}</span></div>
+                    <div><span className="text-gray-500">Student Name:</span> <span className="font-medium">{viewApp.student_name || '—'}</span></div>
+                    <div><span className="text-gray-500">Gender:</span> <span className="font-medium">{viewApp.gender ? viewApp.gender.replace(/_/g, ' ').toUpperCase() : '—'}</span></div>
+                    <div><span className="text-gray-500">Date of Birth:</span> <span className="font-medium">{viewApp.date_of_birth || '—'}</span></div>
+                    <div><span className="text-gray-500">Class Applied For:</span> <span className="font-medium">{viewApp.applying_for_class ? viewApp.applying_for_class.replace(/_/g, ' ').toUpperCase() : '—'}</span></div>
+                    <div><span className="text-gray-500">How they came to know:</span> <span className="font-medium">{viewApp.source ? viewApp.source.replace(/_/g, ' ').toUpperCase() : '—'}</span></div>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 border rounded-xl p-4">
+                  <h3 className="font-semibold text-gray-900 mb-3">Parent / Guardian Information</h3>
+                  <div className="space-y-2 text-sm">
+                    <div><span className="text-gray-500">Type:</span> <span className="font-medium">{viewApp.parent_type ? viewApp.parent_type.replace(/_/g, ' ').toUpperCase() : '—'}</span></div>
+                    <div><span className="text-gray-500">Name:</span> <span className="font-medium">{viewApp.parent_name || '—'}</span></div>
+                    <div><span className="text-gray-500">Mobile:</span> <span className="font-medium">{viewApp.mobile || '—'}</span></div>
+                    <div><span className="text-gray-500">Email:</span> <span className="font-medium">{viewApp.email || '—'}</span></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Documents Link (if submitted) */}
+              <div className="bg-white border rounded-xl p-4">
+                <h3 className="font-semibold text-gray-900 mb-2">Documents Link</h3>
+                {viewApp.documents_link ? (
+                  <a
+                    href={viewApp.documents_link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-blue-600 hover:underline break-all text-sm"
+                  >
+                    {viewApp.documents_link}
+                  </a>
+                ) : (
+                  <p className="text-sm text-gray-500">No documents link submitted yet.</p>
+                )}
+              </div>
+
+              {/* Close */}
+              <div className="flex justify-end">
+                <button
+                  onClick={() => {
+                    setShowViewModal(false);
+                    setViewApp(null);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hold Message Dialog */}
+      {holdDialogOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setHoldDialogOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-[#1e3a8a] text-white p-6 rounded-t-2xl">
+              <h2 className="text-xl font-bold">Put Application On Hold</h2>
+              <p className="text-sm text-blue-100 mt-1">Enter a message (this will be emailed to the applicant).</p>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Message *</label>
+                <textarea
+                  value={holdMessage}
+                  onChange={(e) => setHoldMessage(e.target.value)}
+                  className="w-full min-h-[110px] px-4 py-2 border rounded-lg"
+                  placeholder="Example: Birth certificate is missing in the uploaded drive link. Please upload it and resubmit."
+                />
+              </div>
+              <div className="flex gap-3 justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHoldDialogOpen(false);
+                    setHoldMessage('');
+                    setHoldAppId(null);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={submitHold}
+                  className="px-4 py-2 bg-[#f97316] text-white rounded-lg hover:bg-[#f97316]/90"
+                >
+                  Save & Send Email
+                </button>
+              </div>
             </div>
           </div>
         </div>

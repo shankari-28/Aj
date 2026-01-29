@@ -10,6 +10,7 @@ import TeacherDashboard from './pages/teacher/TeacherDashboard';
 import FinanceDashboard from './pages/finance/FinanceDashboard';
 import InventoryDashboard from './pages/inventory/InventoryDashboard';
 import ParentDashboard from './pages/parent/ParentDashboard';
+import ApplicationTrackingPage from './pages/ApplicationTrackingPage';
 import { Toaster } from 'sonner';
 import './App.css';
 
@@ -30,6 +31,7 @@ function App() {
         <Route path="/about" element={<AboutPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/walk-in-registry" element={<WalkInRegistry />} />
+        <Route path="/track/:trackingToken" element={<ApplicationTrackingPage />} />
         
         {/* Protected Routes */}
         <Route path="/admin/*" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />

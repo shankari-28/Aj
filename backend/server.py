@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Request
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Request, BackgroundTasks
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -14,6 +14,11 @@ from passlib.context import CryptContext
 import jwt
 import razorpay
 from enum import Enum
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import secrets
+import asyncio
 
 # Setup
 ROOT_DIR = Path(__file__).parent
@@ -41,6 +46,13 @@ try:
         razorpay_client = razorpay.Client(auth=(key_id, key_secret))
 except Exception as e:
     logging.warning(f"Razorpay client not initialized: {e}")
+
+# Email Configuration
+SMTP_SERVER = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
+SMTP_PORT = int(os.environ.get('SMTP_PORT', '587'))
+SENDER_EMAIL = os.environ.get('SENDER_EMAIL', '')
+SENDER_PASSWORD = os.environ.get('SENDER_PASSWORD', '')
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
 
 # Create the main app
 app = FastAPI()
@@ -227,12 +239,71 @@ class Notification(BaseModel):
     is_read: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+class GalleryImage(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    url: str
+    alt: Optional[str] = None
+    order: int = 0
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 # --- Helper Functions ---
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
+
+def generate_tracking_token() -> str:
+    """Generate a secure random token for application tracking"""
+    return secrets.token_urlsafe(32)
+
+def _send_email_sync(to_email: str, subject: str, html_body: str) -> bool:
+    """Synchronous email sending function (runs in thread pool)"""
+    if not SENDER_EMAIL or not SENDER_PASSWORD:
+        logging.error("Email not configured. SMTP credentials missing. SENDER_EMAIL or SENDER_PASSWORD not set in .env")
+        return False
+    
+    try:
+        logging.info(f"Attempting to send email to {to_email} via {SMTP_SERVER}:{SMTP_PORT}")
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From'] = f"AJ Academy <{SENDER_EMAIL}>"
+        msg['To'] = to_email
+        
+        html_part = MIMEText(html_body, 'html')
+        msg.attach(html_part)
+        
+        logging.info(f"Connecting to SMTP server {SMTP_SERVER}:{SMTP_PORT}")
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            logging.info("Starting TLS...")
+            server.starttls()
+            logging.info(f"Logging in as {SENDER_EMAIL}")
+            server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            logging.info("Sending email message...")
+            server.send_message(msg)
+        
+        logging.info(f"✅ Email sent successfully to {to_email}")
+        return True
+    except smtplib.SMTPAuthenticationError as e:
+        logging.error(f"❌ SMTP Authentication failed for {SENDER_EMAIL}: {e}")
+        logging.error("Please check your email and app password in .env file")
+        return False
+    except smtplib.SMTPException as e:
+        logging.error(f"❌ SMTP error while sending email to {to_email}: {e}")
+        return False
+    except Exception as e:
+        logging.error(f"❌ Failed to send email to {to_email}: {type(e).__name__}: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
+        return False
+
+async def send_email(to_email: str, subject: str, html_body: str) -> bool:
+    """Send email using SMTP (non-blocking)"""
+    # Run the blocking SMTP operation in a thread pool
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, _send_email_sync, to_email, subject, html_body)
 
 def create_jwt_token(user_id: str, email: str, role: str) -> str:
     expiration = datetime.now(timezone.utc) + timedelta(days=JWT_EXPIRATION_DAYS)
@@ -275,6 +346,24 @@ def generate_roll_number(year: int, standard: str, section: str, seq: int) -> st
 @api_router.get("/")
 async def root():
     return {"message": "Kid Scholars School Management System API"}
+
+# Health Check
+@api_router.get("/health")
+async def health_check():
+    try:
+        # Test database connection
+        await db.command("ping")
+        return {
+            "status": "healthy",
+            "database": "connected",
+            "database_name": os.environ.get('DB_NAME', 'unknown')
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "database": "disconnected",
+            "error": str(e)
+        }
 
 # Auth
 class LoginRequest(BaseModel):
@@ -357,23 +446,61 @@ class ApplicationCreateRequest(BaseModel):
 
 @api_router.post("/public/application")
 async def create_application(req: ApplicationCreateRequest):
-    year = datetime.now(timezone.utc).year
-    reference_number = generate_reference_number(year)
+        year = datetime.now(timezone.utc).year
+        reference_number = generate_reference_number(year)
     
-    application_data = req.model_dump()
-    application_data["reference_number"] = reference_number
-    application_data["status"] = ApplicationStatus.ENQUIRY_NEW.value
-    application_data["id"] = str(uuid.uuid4())
-    application_data["created_at"] = datetime.now(timezone.utc).isoformat()
-    application_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+        application_data = req.model_dump()
+        application_data["reference_number"] = reference_number
+        application_data["status"] = ApplicationStatus.ENQUIRY_NEW.value
+        # Always create a tracking token so users can track anytime
+        tracking_token = generate_tracking_token()
+        application_data["tracking_token"] = tracking_token
+        application_data["id"] = str(uuid.uuid4())
+        application_data["created_at"] = datetime.now(timezone.utc).isoformat()
+        application_data["updated_at"] = datetime.now(timezone.utc).isoformat()
     
-    await db.applications.insert_one(application_data)
+        await db.applications.insert_one(application_data)
+
+        # Send confirmation email with reference number and tracking instructions
+        try:
+                tracking_url = f"{FRONTEND_URL}/track/{tracking_token}"
+                subject = "AJ Academy - Application Submitted"
+                html_body = f"""
+                <html>
+                    <body style='font-family: Arial, sans-serif; color: #111827;'>
+                        <div style='max-width: 620px; margin: 0 auto; padding: 16px;'>
+                            <div style='background:#1e3a8a; color:#fff; padding:16px 20px; border-radius:10px 10px 0 0; text-align:center;'>
+                                <img src='aj_academy\frontend\public\assets\aj-academy-logo.png' alt='AJ Academy' style='height:50px; margin-bottom:8px;'/>
+                                <h2 style='margin:0; font-size:20px;'>AJ Academy</h2>
+                                <p style='margin:4px 0 0;'>Application Submitted</p>
+                            </div>
+                            <div style='border:1px solid #e5e7eb; border-top:none; border-radius:0 0 10px 10px; padding:20px; background:#ffffff;'>
+                                <p style='margin-top:0;'>Hi {application_data.get("parent_name", "Parent")},</p>
+                                <p>Thank you for submitting an application for <strong>{application_data.get("student_name", "your child")}</strong>.</p>
+                                <p style='margin:12px 0; padding:12px; background:#f1f5f9; border-radius:8px; border:1px solid #e2e8f0;'>
+                                    <strong>Reference Number:</strong> {reference_number}<br/>
+                                    <strong>Track Online:</strong> <a href='{tracking_url}' style='color:#1d4ed8;'>Click here to track your application</a>
+                                </p>
+                                <p>You can use this reference number on our website to track your application status at any time.</p>
+                                <p style='margin:20px 0;'>
+                                    <a href='{tracking_url}' style='display:inline-block; padding:12px 18px; background:#f97316; color:#fff; text-decoration:none; border-radius:8px; font-weight:600;'>Track Application</a>
+                                </p>
+                                <p style='font-size:13px; color:#4b5563;'>If you have any questions, please reply to this email.</p>
+                                <p style='margin-bottom:0;'>Warm regards,<br/>AJ Academy Admissions Team</p>
+                            </div>
+                        </div>
+                    </body>
+                </html>
+                """
+                await send_email(req.email, subject, html_body)
+        except Exception as e:
+                logging.error(f"Failed to send application confirmation email: {e}")
     
-    return {
-        "success": True,
-        "reference_number": reference_number,
-        "message": "Application submitted successfully"
-    }
+        return {
+                "success": True,
+                "reference_number": reference_number,
+                "message": "Application submitted successfully"
+        }
 
 class ApplicationStatusRequest(BaseModel):
     reference_number: str
@@ -398,6 +525,88 @@ async def check_application_status(req: ApplicationStatusRequest):
         "remarks": application.get("remarks", "We will contact you within 2-3 business days")
     }
 
+@api_router.post("/public/application/resolve-tracking")
+async def resolve_tracking_token(req: ApplicationStatusRequest):
+    """
+    Given reference number + DOB, return a tracking token.
+    If the application doesn't yet have a token (older records), create and store one.
+    """
+    application = await db.applications.find_one({
+        "reference_number": req.reference_number,
+        "date_of_birth": req.date_of_birth
+    }, {"_id": 0})
+
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    tracking_token = application.get("tracking_token")
+    if not tracking_token:
+        tracking_token = generate_tracking_token()
+        now = datetime.now(timezone.utc).isoformat()
+        await db.applications.update_one(
+            {"id": application["id"]},
+            {"$set": {"tracking_token": tracking_token, "updated_at": now}}
+        )
+
+    return {"tracking_token": tracking_token}
+
+@api_router.get("/public/application/track/{tracking_token}")
+async def get_application_by_tracking_token(tracking_token: str):
+    """Get application details using tracking token (from email link)"""
+    application = await db.applications.find_one({
+        "tracking_token": tracking_token
+    }, {"_id": 0})
+    
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+    
+    return {
+        "branch": application.get("branch", ""),
+        "reference_number": application["reference_number"],
+        "student_name": application["student_name"],
+        "gender": application.get("gender", ""),
+        "source": application.get("source", ""),
+        "parent_type": application.get("parent_type", ""),
+        "applying_for_class": application["applying_for_class"],
+        "status": application["status"],
+        "submitted_date": application["created_at"],
+        "parent_name": application.get("parent_name", ""),
+        "email": application.get("email", ""),
+        "mobile": application.get("mobile", ""),
+        "remarks": application.get("remarks", "We will contact you within 2-3 business days"),
+        "date_of_birth": application.get("date_of_birth", ""),
+        "documents_link": application.get("documents_link", ""),
+        "documents_submitted_at": application.get("documents_submitted_at", "")
+    }
+
+class DocumentLinkSubmitRequest(BaseModel):
+    documents_link: str
+
+@api_router.post("/public/application/track/{tracking_token}/submit-documents")
+async def submit_documents_by_tracking_token(tracking_token: str, req: DocumentLinkSubmitRequest):
+    """Save a Google Drive/Dropbox link for documents using tracking token."""
+    documents_link = (req.documents_link or "").strip()
+    if not documents_link:
+        raise HTTPException(status_code=400, detail="documents_link is required")
+
+    now = datetime.now(timezone.utc).isoformat()
+    result = await db.applications.update_one(
+        {"tracking_token": tracking_token},
+        {"$set": {
+            "documents_link": documents_link,
+            "documents_submitted_at": now,
+            "updated_at": now,
+        }}
+    )
+
+    if result.modified_count == 0:
+        # Either not found, or same link already existed.
+        exists = await db.applications.find_one({"tracking_token": tracking_token}, {"_id": 0, "documents_link": 1})
+        if not exists:
+            raise HTTPException(status_code=404, detail="Application not found")
+
+    return {"success": True, "message": "Documents link saved"}
+
 # Applications (Admission Officer)
 @api_router.get("/applications")
 async def get_applications(current_user: dict = Depends(get_current_user)):
@@ -417,9 +626,361 @@ class ApplicationUpdateRequest(BaseModel):
     section: Optional[str] = None
 
 @api_router.patch("/applications/{application_id}")
-async def update_application(application_id: str, req: ApplicationUpdateRequest, current_user: dict = Depends(get_current_user)):
+async def update_application(application_id: str, req: ApplicationUpdateRequest, background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
+    # Get current application to check if status is changing
+    application = await db.applications.find_one({"id": application_id}, {"_id": 0})
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+    
+    old_status = application.get("status")
     update_data = {k: v for k, v in req.model_dump().items() if v is not None}
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    email_scheduled = False
+
+    # Validate: on_hold requires a message
+    if req.status == ApplicationStatus.ON_HOLD.value:
+        hold_message = (req.remarks or "").strip()
+        if not hold_message:
+            raise HTTPException(status_code=400, detail="remarks is required when status is on_hold")
+    
+    # If status is changing to documents_pending, generate tracking token and send email
+    if req.status == ApplicationStatus.DOCUMENTS_PENDING.value and old_status != ApplicationStatus.DOCUMENTS_PENDING.value:
+        # Generate or get tracking token
+        tracking_token = application.get("tracking_token")
+        if not tracking_token:
+            tracking_token = generate_tracking_token()
+            update_data["tracking_token"] = tracking_token
+        
+        # Prepare email content
+        student_name = application.get("student_name", "Student")
+        parent_name = application.get("parent_name", "Parent")
+        reference_number = application.get("reference_number", "")
+        date_of_birth = application.get("date_of_birth", "")
+        
+        # Build tracking URL with token
+        tracking_url = f"{FRONTEND_URL}/track/{tracking_token}"
+        
+        email_subject = f"Documents Required for {student_name}'s Admission Application - {reference_number}"
+        email_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background-color: #1e3a8a; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }}
+                .content {{ background-color: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; }}
+                .button {{ display: inline-block; background-color: #f97316; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: bold; }}
+                .button:hover {{ background-color: #ea580c; }}
+                .info-box {{ background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }}
+                .ref-box {{ background-color: #e5e7eb; padding: 10px; border-radius: 4px; margin: 10px 0; font-family: monospace; }}
+                .footer {{ text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <img src='{FRONTEND_URL}/assets/aj-academy-logo.png' alt='AJ Academy' style='height:60px; margin-bottom:12px;'/>
+                    <h1>AJ Academy</h1>
+                    <p style="margin: 0; font-size: 14px;">Medavakkam, Chennai</p>
+                </div>
+                <div class="content">
+                    <h2>Documents Required for Admission</h2>
+                    <p>Dear {parent_name},</p>
+                    <p>We hope this email finds you well. We are pleased to inform you that your application for <strong>{student_name}</strong> has been reviewed.</p>
+                    
+                    <div class="info-box">
+                        <p style="margin: 0 0 10px 0;"><strong>📄 Action Required:</strong> You are requested to submit the following documents:</p>
+                        <ul style="margin: 10px 0; padding-left: 20px;">
+                            <li>Birth Certificate</li>
+                            <li>Previous School Leaving Certificate (if applicable)</li>
+                            <li>Health Certificate</li>
+                            <li>Passport size photographs (2 copies)</li>
+                            <li>Parent/Guardian ID proof</li>
+                            <li>Address proof</li>
+                        </ul>
+                    </div>
+                    
+                    <p><strong>Your Application Details:</strong></p>
+                    <div class="ref-box">
+                        <strong>Reference Number:</strong> {reference_number}<br>
+                        <strong>Student Name:</strong> {student_name}<br>
+                        <strong>Date of Birth:</strong> {date_of_birth}
+                    </div>
+                    
+                    <p>You can track your application status and submit your documents using the link below:</p>
+                    
+                    <div style="text-align: center;">
+                        <a href="{tracking_url}" class="button">Track Application Status</a>
+                    </div>
+                    
+                    <p style="margin-top: 30px; word-break: break-all;"><strong>Or copy and paste this link in your browser:</strong><br>
+                    <a href="{tracking_url}" style="color: #1e3a8a;">{tracking_url}</a></p>
+                    
+                    <p style="margin-top: 30px;"><strong>How to Submit Documents:</strong></p>
+                    <ol style="padding-left: 20px;">
+                        <li>Click the button above or use the tracking link</li>
+                        <li>You will see your application status and details</li>
+                        <li>Follow the instructions on the page to submit your documents</li>
+                        <li>You can also submit documents by pasting a Google Drive, Dropbox, or any cloud storage link</li>
+                    </ol>
+                    
+                    <p><strong>Important Notes:</strong></p>
+                    <ul style="padding-left: 20px;">
+                        <li>Please ensure all documents are clear and readable</li>
+                        <li>Upload documents to Google Drive, Dropbox, OneDrive, or any cloud storage service</li>
+                        <li>Make sure the link is set to "Anyone with the link can view"</li>
+                        <li>Submit the link in the document submission field</li>
+                    </ul>
+                    
+                    <p>If you have any questions or need assistance, please feel free to contact us:</p>
+                    <p><strong>Phone:</strong> +91 72008 25692<br>
+                    <strong>Email:</strong> {SENDER_EMAIL or 'ajacademy2024@gmail.com'}</p>
+                    
+                    <p>We look forward to welcoming {student_name} to AJ Academy!</p>
+                    
+                    <p>Best regards,<br>
+                    <strong>Admission Office</strong><br>
+                    AJ Academy<br>
+                    Medavakkam, Chennai</p>
+                </div>
+                <div class="footer">
+                    <p>This is an automated email. Please do not reply to this message.</p>
+                    <p>If you have questions, please contact us using the phone or email above.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        # Email text body (fallback for non-HTML email clients)
+        email_text = f"""
+AJ Academy - Documents Required
+
+Dear {parent_name},
+
+We hope this email finds you well. We are pleased to inform you that your application for {student_name} has been reviewed.
+
+ACTION REQUIRED: You are requested to submit the following documents:
+- Birth Certificate
+- Previous School Leaving Certificate (if applicable)
+- Health Certificate
+- Passport size photographs (2 copies)
+- Parent/Guardian ID proof
+- Address proof
+
+Your Application Details:
+Reference Number: {reference_number}
+Student Name: {student_name}
+Date of Birth: {date_of_birth}
+
+To check your application status and submit your documents:
+1. Click this link: {tracking_url}
+2. You will see your application status and details
+3. Follow the instructions on the page to submit your documents
+4. You can also submit documents by pasting a Google Drive, Dropbox, or any cloud storage link
+
+Important Notes:
+- Please ensure all documents are clear and readable
+- Upload documents to Google Drive, Dropbox, OneDrive, or any cloud storage service
+- Make sure the link is set to "Anyone with the link can view"
+- Submit the link in the document submission field
+
+If you have any questions or need assistance, please contact us:
+Phone: +91 72008 25692
+Email: {SENDER_EMAIL or 'ajacademy2024@gmail.com'}
+
+We look forward to welcoming {student_name} to AJ Academy!
+
+Best regards,
+Admission Office
+AJ Academy
+Medavakkam, Chennai
+
+---
+This is an automated email. Please do not reply to this message.
+        """
+        
+        # Send email asynchronously (don't block the response)
+        recipient_email = application.get("email")
+        if recipient_email:
+            # Run email sending in background
+            background_tasks.add_task(send_email, recipient_email, email_subject, email_html)
+            logging.info(f"Scheduling email to be sent to {recipient_email} for application {reference_number}")
+            email_scheduled = True
+        else:
+            logging.warning(f"No email address found for application {reference_number}, cannot send email")
+
+    # If status is changing to documents_verified, send confirmation email
+    if req.status == ApplicationStatus.DOCUMENTS_VERIFIED.value and old_status != ApplicationStatus.DOCUMENTS_VERIFIED.value:
+        student_name = application.get("student_name", "Student")
+        parent_name = application.get("parent_name", "Parent")
+        reference_number = application.get("reference_number", "")
+        tracking_token = application.get("tracking_token")
+        tracking_url = f"{FRONTEND_URL}/track/{tracking_token}" if tracking_token else FRONTEND_URL
+
+        email_subject = f"Documents Verified ✅ - Admission Application {reference_number}"
+        email_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <style>
+            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .header {{ background-color: #1e3a8a; color: white; padding: 18px; text-align: center; border-radius: 8px 8px 0 0; }}
+            .content {{ background-color: #f9fafb; padding: 26px; border: 1px solid #e5e7eb; }}
+            .badge {{ display:inline-block; padding: 6px 10px; border-radius: 999px; background: #dcfce7; color:#166534; font-weight:700; font-size: 12px; }}
+            .button {{ display: inline-block; background-color: #f97316; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 16px 0; font-weight: bold; }}
+            .footer {{ text-align: center; padding: 16px; color: #6b7280; font-size: 12px; }}
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <img src='{FRONTEND_URL}/assets/aj-academy-logo.png' alt='AJ Academy' style='height:50px; margin-bottom:10px;'/>
+              <h2 style="margin:0;">AJ Academy</h2>
+              <div style="margin-top:8px;"><span class="badge">DOCUMENTS VERIFIED</span></div>
+            </div>
+            <div class="content">
+              <p>Dear {parent_name},</p>
+              <p>We are happy to confirm that the documents submitted for <strong>{student_name}</strong> have been <strong>verified successfully</strong>.</p>
+              <p><strong>Reference Number:</strong> {reference_number}</p>
+              <p>You can track your application status anytime using the link below:</p>
+              <div style="text-align:center;">
+                <a class="button" href="{tracking_url}">Track Application Status</a>
+              </div>
+              <p>If any further steps are required (e.g., fee payment), our team will notify you.</p>
+              <p>Best regards,<br><strong>Admission Office</strong></p>
+            </div>
+            <div class="footer">
+              <p>This is an automated email. Please do not reply.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+        """
+
+        recipient_email = application.get("email")
+        if recipient_email:
+            background_tasks.add_task(send_email, recipient_email, email_subject, email_html)
+            logging.info(f"Scheduling documents_verified email to {recipient_email} for application {reference_number}")
+            email_scheduled = True
+        else:
+            logging.warning(f"No email address found for application {reference_number}, cannot send documents_verified email")
+
+    # If status is changing to on_hold, email the hold reason (remarks)
+    if req.status == ApplicationStatus.ON_HOLD.value and old_status != ApplicationStatus.ON_HOLD.value:
+        student_name = application.get("student_name", "Student")
+        parent_name = application.get("parent_name", "Parent")
+        reference_number = application.get("reference_number", "")
+        hold_reason = (req.remarks or "").strip()
+        tracking_token = application.get("tracking_token")
+        tracking_url = f"{FRONTEND_URL}/track/{tracking_token}" if tracking_token else FRONTEND_URL
+
+        email_subject = f"Application On Hold ⏸️ - {reference_number}"
+        email_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <style>
+            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .header {{ background-color: #1e3a8a; color: white; padding: 18px; text-align: center; border-radius: 8px 8px 0 0; }}
+            .content {{ background-color: #f9fafb; padding: 26px; border: 1px solid #e5e7eb; }}
+            .box {{ background:#fff7ed; border-left: 4px solid #f97316; padding: 14px; margin: 16px 0; }}
+            .button {{ display: inline-block; background-color: #f97316; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 16px 0; font-weight: bold; }}
+            .footer {{ text-align: center; padding: 16px; color: #6b7280; font-size: 12px; }}
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <img src='{FRONTEND_URL}/assets/aj-academy-logo.png' alt='AJ Academy' style='height:50px; margin-bottom:10px;'/>
+              <h2 style="margin:0;">AJ Academy</h2>
+              <p style="margin:6px 0 0 0;">Application On Hold</p>
+            </div>
+            <div class="content">
+              <p>Dear {parent_name},</p>
+              <p>Your admission application for <strong>{student_name}</strong> (Reference: <strong>{reference_number}</strong>) is currently placed <strong>on hold</strong>.</p>
+              <div class="box">
+                <p style="margin:0;"><strong>Reason / Message from Admission Team:</strong></p>
+                <p style="margin:8px 0 0 0; white-space: pre-wrap;">{hold_reason}</p>
+              </div>
+              <p>You can track your application status here:</p>
+              <div style="text-align:center;">
+                <a class="button" href="{tracking_url}">Track Application Status</a>
+              </div>
+              <p>Once the required information/documents are provided, we will proceed with the next steps.</p>
+              <p>Best regards,<br><strong>Admission Office</strong></p>
+            </div>
+            <div class="footer">
+              <p>This is an automated email. Please do not reply.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+        """
+
+        recipient_email = application.get("email")
+        if recipient_email:
+            background_tasks.add_task(send_email, recipient_email, email_subject, email_html)
+            logging.info(f"Scheduling on_hold email to {recipient_email} for application {reference_number}")
+            email_scheduled = True
+        else:
+            logging.warning(f"No email address found for application {reference_number}, cannot send on_hold email")
+
+    # If status is changing to rejected, email rejection notice
+    if req.status == ApplicationStatus.REJECTED.value and old_status != ApplicationStatus.REJECTED.value:
+        student_name = application.get("student_name", "Student")
+        parent_name = application.get("parent_name", "Parent")
+        reference_number = application.get("reference_number", "")
+
+        email_subject = f"Application Update - {reference_number}"
+        email_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <style>
+            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .header {{ background-color: #1e3a8a; color: white; padding: 18px; text-align: center; border-radius: 8px 8px 0 0; }}
+            .content {{ background-color: #f9fafb; padding: 26px; border: 1px solid #e5e7eb; }}
+            .footer {{ text-align: center; padding: 16px; color: #6b7280; font-size: 12px; }}
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <img src='{FRONTEND_URL}/assets/aj-academy-logo.png' alt='AJ Academy' style='height:50px; margin-bottom:10px;'/>
+              <h2 style="margin:0;">AJ Academy</h2>
+              <p style="margin:6px 0 0 0;">Application Status: Rejected</p>
+            </div>
+            <div class="content">
+              <p>Dear {parent_name},</p>
+              <p>Thank you for your interest in AJ Academy.</p>
+              <p>After review, we regret to inform you that the admission application for <strong>{student_name}</strong> (Reference: <strong>{reference_number}</strong>) has been <strong>rejected</strong>.</p>
+              <p>If you have any questions, please contact our admission office.</p>
+              <p>Best regards,<br><strong>Admission Office</strong></p>
+            </div>
+            <div class="footer">
+              <p>This is an automated email. Please do not reply.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+        """
+
+        recipient_email = application.get("email")
+        if recipient_email:
+            background_tasks.add_task(send_email, recipient_email, email_subject, email_html)
+            logging.info(f"Scheduling rejected email to {recipient_email} for application {reference_number}")
+            email_scheduled = True
+        else:
+            logging.warning(f"No email address found for application {reference_number}, cannot send rejected email")
     
     result = await db.applications.update_one(
         {"id": application_id},
@@ -429,7 +990,7 @@ async def update_application(application_id: str, req: ApplicationUpdateRequest,
     if result.modified_count == 0:
         raise HTTPException(status_code=404, detail="Application not found")
     
-    return {"success": True, "message": "Application updated"}
+    return {"success": True, "message": "Application updated", "email_sent": email_scheduled}
 
 class AdmitStudentRequest(BaseModel):
     section: str
@@ -589,6 +1150,29 @@ async def get_academic_years(current_user: dict = Depends(get_current_user)):
     years = await db.academic_years.find({}, {"_id": 0}).to_list(100)
     return years
 
+@api_router.delete("/academic/years/{year_id}")
+async def delete_academic_year(year_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] not in ["super_admin", "school_admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Check if year is being used in any sections
+    year_doc = await db.academic_years.find_one({"id": year_id})
+    if not year_doc:
+        raise HTTPException(status_code=404, detail="Academic year not found")
+    
+    sections_using_year = await db.sections.find_one({"academic_year": year_doc["year"]})
+    if sections_using_year:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete academic year as it is being used in sections. Please remove sections first."
+        )
+    
+    result = await db.academic_years.delete_one({"id": year_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Academic year not found")
+    
+    return {"success": True, "message": "Academic year deleted successfully"}
+
 class SectionCreateRequest(BaseModel):
     standard: Standard
     section_name: str
@@ -612,6 +1196,160 @@ async def create_section(req: SectionCreateRequest, current_user: dict = Depends
 async def get_sections(current_user: dict = Depends(get_current_user)):
     sections = await db.sections.find({}, {"_id": 0}).to_list(100)
     return sections
+
+@api_router.delete("/academic/sections/{section_id}")
+async def delete_section(section_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] not in ["super_admin", "school_admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Check if section has enrolled students
+    students_in_section = await db.students.find_one({"section_id": section_id})
+    if students_in_section:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete section as it has enrolled students. Please reassign students first."
+        )
+    
+    result = await db.sections.delete_one({"id": section_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Section not found")
+    
+    return {"success": True, "message": "Section deleted successfully"}
+
+# Standards Management
+class StandardModel(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    display_name: str
+    code: str
+    age_range: Optional[str] = None
+    description: Optional[str] = None
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class StandardCreateRequest(BaseModel):
+    name: str
+    display_name: str
+    code: str
+    age_range: Optional[str] = None
+    description: Optional[str] = None
+
+class StandardUpdateRequest(BaseModel):
+    display_name: Optional[str] = None
+    age_range: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+
+@api_router.post("/academic/standards")
+async def create_standard(req: StandardCreateRequest, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] not in ["super_admin", "school_admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Check if standard code already exists
+    existing = await db.standards.find_one({"code": req.code})
+    if existing:
+        raise HTTPException(status_code=400, detail="Standard with this code already exists")
+    
+    standard_data = req.model_dump()
+    standard_data["id"] = str(uuid.uuid4())
+    standard_data["is_active"] = True
+    standard_data["created_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.standards.insert_one(standard_data)
+    return {"success": True, "message": "Standard created successfully", "data": standard_data}
+
+@api_router.get("/academic/standards")
+async def get_standards(current_user: dict = Depends(get_current_user)):
+    standards = await db.standards.find({}, {"_id": 0}).sort("created_at", 1).to_list(100)
+    
+    # If no standards exist, return default standards
+    if not standards:
+        default_standards = [
+            {
+                "id": str(uuid.uuid4()),
+                "name": "play_group",
+                "display_name": "Play Group",
+                "code": "play_group",
+                "age_range": "1.5-2.5 Years",
+                "description": "Early learning through play",
+                "is_active": True,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "name": "pre_kg",
+                "display_name": "Pre KG",
+                "code": "pre_kg",
+                "age_range": "2.5-3.5 Years",
+                "description": "Foundation for kindergarten",
+                "is_active": True,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "name": "lkg",
+                "display_name": "LKG",
+                "code": "lkg",
+                "age_range": "3.5-4.5 Years",
+                "description": "Lower kindergarten excellence",
+                "is_active": True,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "name": "ukg",
+                "display_name": "UKG",
+                "code": "ukg",
+                "age_range": "4.5-5.5 Years",
+                "description": "Upper kindergarten mastery",
+                "is_active": True,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+        ]
+        await db.standards.insert_many(default_standards)
+        standards = default_standards
+    
+    return standards
+
+@api_router.put("/academic/standards/{standard_id}")
+async def update_standard(standard_id: str, req: StandardUpdateRequest, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] not in ["super_admin", "school_admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    update_data = {k: v for k, v in req.model_dump().items() if v is not None}
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    result = await db.standards.update_one(
+        {"id": standard_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Standard not found")
+    
+    return {"success": True, "message": "Standard updated successfully"}
+
+@api_router.delete("/academic/standards/{standard_id}")
+async def delete_standard(standard_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] not in ["super_admin", "school_admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Check if standard is being used in any sections
+    sections_using_standard = await db.sections.find_one({"standard": standard_id})
+    if sections_using_standard:
+        raise HTTPException(
+            status_code=400, 
+            detail="Cannot delete standard as it is being used in sections. Please remove or reassign sections first."
+        )
+    
+    result = await db.standards.delete_one({"id": standard_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Standard not found")
+    
+    return {"success": True, "message": "Standard deleted successfully"}
 
 # Teacher Assignment
 class TeacherAssignmentCreateRequest(BaseModel):
@@ -1059,6 +1797,175 @@ async def delete_user(user_id: str, current_user: dict = Depends(get_current_use
         raise HTTPException(status_code=404, detail="User not found")
     
     return {"success": True, "message": "User deleted successfully"}
+
+# ==================== GALLERY MANAGEMENT MODULE ====================
+
+@api_router.get("/admin/gallery")
+async def get_gallery():
+    """Get all gallery images (public endpoint)"""
+    images = await db.gallery.find({}).sort("order", 1).to_list(1000)
+    # Convert MongoDB _id to id for frontend compatibility
+    for img in images:
+        if "_id" in img:
+            img["_id"] = str(img["_id"])
+    return images
+
+@api_router.post("/admin/gallery/upload")
+async def upload_gallery_images(
+    request: Request,
+    current_user: dict = Depends(get_current_user)
+):
+    """Upload images to gallery"""
+    if current_user["role"] not in ["super_admin", "school_admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    try:
+        form_data = await request.form()
+        files = form_data.getlist("files")
+        
+        if not files:
+            raise HTTPException(status_code=400, detail="No files provided")
+        
+        # Get the next order number
+        last_image = await db.gallery.find_one({}, sort=[("order", -1)])
+        next_order = (last_image["order"] + 1) if last_image else 1
+        
+        uploaded_images = []
+        
+        for idx, file in enumerate(files):
+            if file.filename:
+                # Read file content
+                content = await file.read()
+                
+                # Create a simple storage URL (in production, use S3, GCS, etc.)
+                # For now, we'll store the base64 encoded image data
+                import base64
+                encoded_image = base64.b64encode(content).decode('utf-8')
+                
+                # Get file extension
+                file_ext = file.filename.split('.')[-1].lower()
+                mime_type = f"image/{file_ext}" if file_ext in ["jpg", "jpeg", "png", "gif", "webp"] else "image/jpeg"
+                
+                image_url = f"data:{mime_type};base64,{encoded_image}"
+                
+                gallery_item = {
+                    "url": image_url,
+                    "alt": f"Gallery Image {next_order + idx}",
+                    "order": next_order + idx,
+                    "filename": file.filename,
+                    "created_at": datetime.now(timezone.utc),
+                    "updated_at": datetime.now(timezone.utc)
+                }
+                
+                result = await db.gallery.insert_one(gallery_item)
+                uploaded_images.append(str(result.inserted_id))
+        
+        return {
+            "success": True,
+            "message": f"Uploaded {len(uploaded_images)} image(s)",
+            "count": len(uploaded_images)
+        }
+    
+    except Exception as e:
+        logger.error(f"Gallery upload error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+@api_router.post("/admin/gallery/add-url")
+async def add_gallery_image_url(
+    data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Add image to gallery from URL"""
+    if current_user["role"] not in ["super_admin", "school_admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    try:
+        url = data.get("url")
+        alt = data.get("alt", "Gallery Image")
+        
+        if not url:
+            raise HTTPException(status_code=400, detail="URL is required")
+        
+        # Validate URL
+        if not url.startswith(("http://", "https://", "data:")):
+            raise HTTPException(status_code=400, detail="Invalid URL format")
+        
+        # Get the next order number
+        last_image = await db.gallery.find_one({}, sort=[("order", -1)])
+        next_order = (last_image["order"] + 1) if last_image else 1
+        
+        gallery_item = {
+            "url": url,
+            "alt": alt,
+            "order": next_order,
+            "source": "url",
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc)
+        }
+        
+        result = await db.gallery.insert_one(gallery_item)
+        
+        return {
+            "success": True,
+            "message": "Image added successfully",
+            "id": str(result.inserted_id)
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Gallery URL add error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to add image: {str(e)}")
+
+@api_router.delete("/admin/gallery/{image_id}")
+async def delete_gallery_image(
+    image_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Delete an image from gallery"""
+    if current_user["role"] not in ["super_admin", "school_admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    from bson import ObjectId
+    
+    try:
+        result = await db.gallery.delete_one({"_id": ObjectId(image_id)})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Image not found")
+        
+        return {"success": True, "message": "Image deleted successfully"}
+    
+    except Exception as e:
+        logger.error(f"Gallery delete error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Delete failed: {str(e)}")
+
+@api_router.patch("/admin/gallery/{image_id}/order")
+async def update_gallery_image_order(
+    image_id: str,
+    order: int,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update image order in gallery"""
+    if current_user["role"] not in ["super_admin", "school_admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    from bson import ObjectId
+    
+    try:
+        result = await db.gallery.update_one(
+            {"_id": ObjectId(image_id)},
+            {"$set": {"order": order, "updated_at": datetime.now(timezone.utc)}}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Image not found")
+        
+        return {"success": True, "message": "Image order updated"}
+    
+    except Exception as e:
+        logger.error(f"Gallery order update error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
 
 # ==================== REPORTS MODULE ====================
 

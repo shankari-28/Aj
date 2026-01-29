@@ -4,6 +4,18 @@ import { Menu, X, ChevronDown } from 'lucide-react';
 import NewApplicationModal from '../components/NewApplicationModal';
 import CheckStatusModal from '../components/CheckStatusModal';
 import LoginModal from '../components/LoginModal';
+import facebookLogo from '../assets/facebook.png';
+import instagramLogo from '../assets/instagram.png';
+import youtubeLogo from '../assets/youtube.png';
+import ajAcademyLogo from '../assets/aj-academy-logo.png';
+import waLogo from '../assets/wa.png';
+import gallery1 from '../assets/1.png';
+import gallery2 from '../assets/2.png';
+import gallery3 from '../assets/3.png';
+import gallery4 from '../assets/4.png';
+import gallery5 from '../assets/5.png';
+import gallery6 from '../assets/6.png';
+import { adminAPI } from '../utils/api';
 
 const HomePage = () => {
   const navigate = useNavigate();
@@ -12,6 +24,37 @@ const HomePage = () => {
   const [showLogin, setShowLogin] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [admissionsOpen, setAdmissionsOpen] = useState(false);
+  const [galleryImages, setGalleryImages] = useState([
+    { img: gallery1, alt: 'Gallery 1' },
+    { img: gallery2, alt: 'Gallery 2' },
+    { img: gallery3, alt: 'Gallery 3' },
+    { img: gallery4, alt: 'Gallery 4' },
+    { img: gallery5, alt: 'Gallery 5' },
+    { img: gallery6, alt: 'Gallery 6' },
+  ]);
+  const [galleryLoaded, setGalleryLoaded] = useState(false);
+
+  React.useEffect(() => {
+    loadGallery();
+  }, []);
+
+  const loadGallery = async () => {
+    try {
+      const response = await adminAPI.getGallery();
+      if (response.data && response.data.length > 0) {
+        // Convert backend gallery images to match our format
+        const images = response.data.map((img) => ({
+          img: img.url,
+          alt: img.alt || 'Gallery Image'
+        }));
+        setGalleryImages(images);
+      }
+      setGalleryLoaded(true);
+    } catch (error) {
+      console.log('Using default gallery images');
+      setGalleryLoaded(true);
+    }
+  };
 
   const programs = [
     { icon: '🎨', name: 'Play Group', age: 'Age 1.5-2.5 Years', desc: 'Early learning through play' },
@@ -35,24 +78,24 @@ const HomePage = () => {
     <div className="min-h-screen bg-white">
       {/* Top Header Strip */}
       <div className="bg-[#1e3a8a] border-b-2 border-[#f97316] text-white py-2 px-4">
-        <div className="max-w-7xl mx-auto flex justify-between items-center text-sm">
-          <div className="flex gap-6">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:justify-between md:items-center text-sm gap-2 md:gap-0">
+          <div className="flex flex-col md:flex-row md:gap-6 gap-1">
             <span>📍 Medavakkam, Chennai – 600100</span>
             <span>📞 +91 7200 82 56 92</span>
           </div>
-          <span>✉️ info@kidscholars.edu.in</span>
+          <span>✉️ajacademy2024@gmail.com</span>
         </div>
       </div>
 
       {/* Main Navigation */}
       <nav className="bg-white shadow-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex justify-between items-center">
+        <div className="max-w-7xl mx-auto px-4 py-4"> 
+          <div className="flex justify-between items-center"> 
             {/* Logo */}
             <div className="flex items-center gap-3">
-              <img src="https://customer-assets.emergentagent.com/job_8188fb5c-0710-427a-be92-5f4c6acdc6fd/artifacts/bhde4pth_kid-scholars-logo.jpeg" alt="Kid Scholars" className="h-14 w-14 rounded-full object-cover" />
+              <img src={ajAcademyLogo} alt="aj academy logo" className="h-14 w-14 rounded-full object-cover" />
               <div>
-                <h1 className="text-[#1e3a8a] font-bold text-xl">Kid Scholars</h1>
+                <h1 className="text-[#1e3a8a] font-bold text-xl">AJ Academy</h1>
                 <p className="text-[#f97316] text-sm font-medium">Where Play Meets Education</p>
               </div>
             </div>
@@ -139,9 +182,9 @@ const HomePage = () => {
         <div className="absolute top-10 right-10 w-64 h-64 bg-[#f97316] rounded-full opacity-20 blur-3xl"></div>
         <div className="max-w-7xl mx-auto px-4 relative z-10 text-center">
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6" data-testid="hero-heading">
-            Welcome to Kid Scholars<br />International School
+            Welcome to AJ Academy <br />
           </h1>
-          <p className="text-lg sm:text-xl mb-8 text-gray-200">A Unit of AJ Academy Trust - Where Play Meets Education</p>
+          <p className="text-lg sm:text-xl mb-8 text-gray-200"> Where Play Meets Education</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
               onClick={() => setShowNewApp(true)}
@@ -226,7 +269,35 @@ const HomePage = () => {
             <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-6">
               <div className="text-3xl mb-3">🌐</div>
               <h3 className="font-bold text-lg mb-2">Follow Us</h3>
-              <p className="text-sm text-gray-200">@kidscholarsinternational<br />@ajacademy24</p>
+              <div className="flex items-center gap-4">
+                <a
+                  href="https://www.facebook.com/kidscholarsinternational"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex"
+                  aria-label="Facebook"
+                >
+                  <img src={facebookLogo} alt="Facebook" className="w-10 h-10 rounded-full" />
+                </a>
+                <a
+                  href="https://www.instagram.com/kidscholarsinternational"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex"
+                  aria-label="Instagram"
+                >
+                  <img src={instagramLogo} alt="Instagram" className="w-10 h-10 rounded-full" />
+                </a>
+                <a
+                  href="https://www.youtube.com/@kidscholarsinternational"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex"
+                  aria-label="YouTube"
+                >
+                  <img src={youtubeLogo} alt="YouTube" className="w-10 h-10 rounded-full" />
+                </a>
+              </div>
             </div>
           </div>
         </div>
@@ -240,11 +311,16 @@ const HomePage = () => {
             <div className="w-24 h-1 bg-[#f97316] mx-auto"></div>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="aspect-video bg-gray-200 rounded-xl flex items-center justify-center">
-                <span className="text-gray-400">Gallery Image {i}</span>
+            {galleryLoaded && galleryImages.map((item, i) => (
+              <div key={i} className="aspect-video bg-gray-200 rounded-xl overflow-hidden">
+                <img src={item.img} alt={item.alt} className="w-full h-full object-cover" />
               </div>
             ))}
+            {!galleryLoaded && (
+              <div className="col-span-full flex items-center justify-center py-8">
+                <div className="text-gray-500">Loading gallery...</div>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -277,22 +353,48 @@ const HomePage = () => {
               <li><a href="#" className="hover:text-[#f97316]">Complaint Portal</a></li>
             </ul>
           </div>
-          <div>
+          <div id="contact">
             <h4 className="font-bold text-lg mb-4">Contact</h4>
             <p className="text-sm text-gray-400 mb-2">4C, CCR Garden, Medavakkam, Chennai - 600100</p>
             <p className="text-sm text-gray-400">+91 72008 25692</p>
           </div>
         </div>
         <div className="border-t border-gray-800 mt-8 pt-8 text-center text-sm text-gray-500">
-          © 2026 Kid Scholars International School – A Unit of AJ Academy Trust. All rights reserved.
+          © 2026 AJ Academy. All rights reserved.
+          
         </div>
+        
       </footer>
 
       {/* Modals */}
       {showNewApp && <NewApplicationModal onClose={() => setShowNewApp(false)} />}
       {showStatus && <CheckStatusModal onClose={() => setShowStatus(false)} />}
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
+
+      {/* WhatsApp Floating Button */}
+      <a href="https://wa.me/917200825692" 
+         target="_blank"
+         rel="noreferrer"
+         style={{
+           position: 'fixed', 
+           bottom: '50px', 
+           right: '50px',
+           background: '#25D366', 
+           borderRadius: '50px',
+           padding: '12px', 
+           display: 'flex', 
+           alignItems: 'center',
+           justifyContent: 'center', 
+           textDecoration: 'none',
+           boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+           zIndex: 1000
+         }}>
+        <img src={waLogo} alt="WhatsApp" 
+             style={{ height: '50px', width: '50px' }} />
+      </a>
     </div>
+
+    
   );
 };
 

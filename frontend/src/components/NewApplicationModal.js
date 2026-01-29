@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { X } from 'lucide-react';
 import { publicAPI } from '../utils/api';
 import { toast } from 'sonner';
@@ -18,6 +18,7 @@ const NewApplicationModal = ({ onClose }) => {
   });
   const [loading, setLoading] = useState(false);
   const [referenceNumber, setReferenceNumber] = useState(null);
+  const successMessageRef = useRef(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -28,9 +29,13 @@ const NewApplicationModal = ({ onClose }) => {
       setReferenceNumber(response.data.reference_number);
       toast.success('Application submitted successfully!');
       
+      // Scroll to success message after a brief delay to allow it to render
       setTimeout(() => {
+        if (successMessageRef.current) {
+          successMessageRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
         alert(`Application Submitted!\n\nYour Reference Number: ${response.data.reference_number}\n\nWe will contact you via mobile/email within 2-3 business days.`);
-      }, 500);
+      }, 300);
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Failed to submit application');
     } finally {
@@ -53,7 +58,7 @@ const NewApplicationModal = ({ onClose }) => {
         </div>
 
         {referenceNumber && (
-          <div className="m-6 p-4 bg-green-50 border border-green-200 rounded-lg" data-testid="success-message">
+          <div ref={successMessageRef} className="m-6 p-4 bg-green-50 border border-green-200 rounded-lg" data-testid="success-message">
             <p className="text-green-800 font-semibold">Application Submitted Successfully!</p>
             <p className="text-green-700 mt-1">Reference Number: <span className="font-mono font-bold">{referenceNumber}</span></p>
             <p className="text-sm text-green-600 mt-2">Please save this number for tracking your application.</p>

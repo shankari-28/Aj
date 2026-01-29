@@ -14,6 +14,9 @@ const AdmissionDashboard = () => {
   const [selectedApp, setSelectedApp] = useState(null);
   const [showAdmitModal, setShowAdmitModal] = useState(false);
   const [showDocuments, setShowDocuments] = useState(false);
+  const [holdDialogOpen, setHoldDialogOpen] = useState(false);
+  const [holdMessage, setHoldMessage] = useState('');
+  const [holdAppId, setHoldAppId] = useState(null);
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -38,11 +41,50 @@ const AdmissionDashboard = () => {
 
   const handleStatusUpdate = async (appId, newStatus) => {
     try {
-      await applicationsAPI.update(appId, { status: newStatus });
-      toast.success('Status updated successfully!');
+      if (newStatus === 'on_hold') {
+        setHoldAppId(appId);
+        setHoldMessage('');
+        setHoldDialogOpen(true);
+        return;
+      }
+      if (newStatus === 'rejected') {
+        const ok = window.confirm('Are you sure you want to mark this application as Rejected? An email will be sent to the applicant.');
+        if (!ok) return;
+      }
+
+      const response = await applicationsAPI.update(appId, { status: newStatus });
+      if (response.data?.email_sent) {
+        toast.success('Status updated and email notification sent to the applicant!');
+      } else {
+        toast.success('Status updated successfully!');
+      }
       loadApplications();
     } catch (error) {
-      toast.error('Failed to update status');
+      toast.error(error.response?.data?.detail || 'Failed to update status');
+    }
+  };
+
+  const submitHold = async () => {
+    const msg = holdMessage.trim();
+    if (!msg) {
+      toast.error('Please enter a message for Hold');
+      return;
+    }
+    if (!holdAppId) return;
+
+    try {
+      const response = await applicationsAPI.update(holdAppId, { status: 'on_hold', remarks: msg });
+      if (response.data?.email_sent) {
+        toast.success('Application put on Hold and email sent to the applicant.');
+      } else {
+        toast.success('Application put on Hold.');
+      }
+      setHoldDialogOpen(false);
+      setHoldMessage('');
+      setHoldAppId(null);
+      loadApplications();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to put application on hold');
     }
   };
 
@@ -138,6 +180,7 @@ const AdmissionDashboard = () => {
                   <th className="text-left p-3">Class</th>
                   <th className="text-left p-3">Contact</th>
                   <th className="text-left p-3">Current Status</th>
+                  <th className="text-left p-3">Docs Link</th>
                   <th className="text-left p-3">Change Status</th>
                   <th className="text-left p-3">Actions</th>
                 </tr>
@@ -155,6 +198,20 @@ const AdmissionDashboard = () => {
                         <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusBadge.color}`}>
                           {statusBadge.label}
                         </span>
+                      </td>
+                      <td className="p-3 text-sm">
+                        {app.documents_link ? (
+                          <a
+                            href={app.documents_link}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-blue-600 hover:underline"
+                          >
+                            View link
+                          </a>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
                       </td>
                       <td className="p-3">
                         <select
@@ -238,6 +295,49 @@ const AdmissionDashboard = () => {
             setSelectedApp(null);
           }}
         />
+      )}
+
+      {/* Hold Message Dialog */}
+      {holdDialogOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setHoldDialogOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-[#1e3a8a] text-white p-6 rounded-t-2xl">
+              <h2 className="text-xl font-bold">Put Application On Hold</h2>
+              <p className="text-sm text-blue-100 mt-1">Enter a message (this will be emailed to the applicant).</p>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Message *</label>
+                <textarea
+                  value={holdMessage}
+                  onChange={(e) => setHoldMessage(e.target.value)}
+                  className="w-full min-h-[110px] px-4 py-2 border rounded-lg"
+                  placeholder="Example: Birth certificate is missing in the uploaded drive link. Please upload it and resubmit."
+                />
+              </div>
+              <div className="flex gap-3 justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHoldDialogOpen(false);
+                    setHoldMessage('');
+                    setHoldAppId(null);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={submitHold}
+                  className="px-4 py-2 bg-[#f97316] text-white rounded-lg hover:bg-[#f97316]/90"
+                >
+                  Save & Send Email
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
