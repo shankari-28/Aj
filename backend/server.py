@@ -470,7 +470,7 @@ async def create_application(req: ApplicationCreateRequest):
                     <body style='font-family: Arial, sans-serif; color: #111827;'>
                         <div style='max-width: 620px; margin: 0 auto; padding: 16px;'>
                             <div style='background:#1e3a8a; color:#fff; padding:16px 20px; border-radius:10px 10px 0 0; text-align:center;'>
-                                <img src='aj_academy\frontend\public\assets\aj-academy-logo.png' alt='AJ Academy' style='height:50px; margin-bottom:8px;'/>
+                                <img src='https://ajacademy.org.in/assets/aj-academy-logo.png' alt='AJ Academy' style='height:50px; margin-bottom:8px;'/>
                                 <h2 style='margin:0; font-size:20px;'>AJ Academy</h2>
                                 <p style='margin:4px 0 0;'>Application Submitted</p>
                             </div>
