@@ -11,6 +11,7 @@ const AttendanceView = ({ teacherId }) => {
 
   useEffect(() => {
     loadStudents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teacherId]);
 
   const loadStudents = async () => {

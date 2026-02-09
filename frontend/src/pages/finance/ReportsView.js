@@ -19,6 +19,7 @@ const ReportsView = () => {
     if (activeReport === 'daily') loadDailyReport();
     else if (activeReport === 'outstanding') loadOutstandingReport();
     else if (activeReport === 'summary') loadSummaryReport();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeReport, selectedDate, dateRange]);
 
   const loadDailyReport = async () => {

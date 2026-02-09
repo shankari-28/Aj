@@ -18,6 +18,7 @@ const TeacherDashboard = () => {
     const userData = localStorage.getItem('user');
     if (userData) setUser(JSON.parse(userData));
     loadStudents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadStudents = async () => {

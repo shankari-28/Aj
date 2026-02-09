@@ -24,6 +24,7 @@ const DocumentManagement = ({ applicationId, onClose }) => {
 
   useEffect(() => {
     loadDocuments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applicationId]);
 
   const loadDocuments = async () => {
