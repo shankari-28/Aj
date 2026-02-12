@@ -2415,10 +2415,12 @@ async def send_fee_reminders(current_user: dict = Depends(get_current_user)):
 # Include the router in the main app
 app.include_router(api_router)
 
+cors_origins_raw = os.environ.get('CORS_ORIGINS') or os.environ.get('FRONTEND_URL', '')
+cors_origins = [origin.strip() for origin in cors_origins_raw.split(',') if origin.strip()]
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
