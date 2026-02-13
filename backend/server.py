@@ -14,9 +14,7 @@ from passlib.context import CryptContext
 import jwt
 import razorpay
 from enum import Enum
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import requests
 import secrets
 import asyncio
 
@@ -47,11 +45,10 @@ try:
 except Exception as e:
     logging.warning(f"Razorpay client not initialized: {e}")
 
-# Email Configuration
-SMTP_SERVER = os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
-SMTP_PORT = int(os.environ.get('SMTP_PORT', '587'))
+# Email Configuration (Resend)
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
+RESEND_FROM = os.environ.get('RESEND_FROM', '')
 SENDER_EMAIL = os.environ.get('SENDER_EMAIL', '')
-SENDER_PASSWORD = os.environ.get('SENDER_PASSWORD', '')
 FRONTEND_URL: EmailStr = os.environ.get('FRONTEND_URL', 'https://ajacademy.org.in')
 
 # Create the main app
@@ -260,38 +257,38 @@ def generate_tracking_token() -> str:
     return secrets.token_urlsafe(32)
 
 def _send_email_sync(to_email: str, subject: str, html_body: str) -> bool:
-    """Synchronous email sending function (runs in thread pool)"""
-    if not SENDER_EMAIL or not SENDER_PASSWORD:
-        logging.error("Email not configured. SMTP credentials missing. SENDER_EMAIL or SENDER_PASSWORD not set in .env")
+    """Synchronous email sending function (runs in thread pool)."""
+    if not RESEND_API_KEY:
+        logging.error("Email not configured. RESEND_API_KEY not set in env.")
         return False
-    
+
+    from_address = RESEND_FROM or SENDER_EMAIL or "onboarding@resend.dev"
+    payload = {
+        "from": from_address,
+        "to": [to_email],
+        "subject": subject,
+        "html": html_body,
+    }
+    if SENDER_EMAIL:
+        payload["reply_to"] = SENDER_EMAIL
+
     try:
-        logging.info(f"Attempting to send email to {to_email} via {SMTP_SERVER}:{SMTP_PORT}")
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = subject
-        msg['From'] = f"AJ Academy <{SENDER_EMAIL}>"
-        msg['To'] = to_email
-        
-        html_part = MIMEText(html_body, 'html')
-        msg.attach(html_part)
-        
-        logging.info(f"Connecting to SMTP server {SMTP_SERVER}:{SMTP_PORT}")
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-            logging.info("Starting TLS...")
-            server.starttls()
-            logging.info(f"Logging in as {SENDER_EMAIL}")
-            server.login(SENDER_EMAIL, SENDER_PASSWORD)
-            logging.info("Sending email message...")
-            server.send_message(msg)
-        
+        logging.info(f"Attempting to send email to {to_email} via Resend")
+        response = requests.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
+            json=payload,
+            timeout=20,
+        )
+        if response.status_code >= 400:
+            logging.error(
+                f"❌ Resend error {response.status_code}: {response.text}"
+            )
+            return False
         logging.info(f"✅ Email sent successfully to {to_email}")
         return True
-    except smtplib.SMTPAuthenticationError as e:
-        logging.error(f"❌ SMTP Authentication failed for {SENDER_EMAIL}: {e}")
-        logging.error("Please check your email and app password in .env file")
-        return False
-    except smtplib.SMTPException as e:
-        logging.error(f"❌ SMTP error while sending email to {to_email}: {e}")
+    except requests.RequestException as e:
+        logging.error(f"❌ Resend request error for {to_email}: {e}")
         return False
     except Exception as e:
         logging.error(f"❌ Failed to send email to {to_email}: {type(e).__name__}: {e}")
@@ -300,7 +297,7 @@ def _send_email_sync(to_email: str, subject: str, html_body: str) -> bool:
         return False
 
 async def send_email(to_email: str, subject: str, html_body: str) -> bool:
-    """Send email using SMTP (non-blocking)"""
+    """Send email using Resend (non-blocking)"""
     # Run the blocking SMTP operation in a thread pool
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, _send_email_sync, to_email, subject, html_body)
