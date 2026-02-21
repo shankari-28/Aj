@@ -20,6 +20,16 @@
         Learn how to configure a non-root public URL by running `npm run build`.
         -->
         <title>AJ Academy</title>
+        <script>
+            // Normalize double-slash URLs (e.g. //track/... -> /track/...)
+            (function() {
+                var path = window.location.pathname;
+                if (path.indexOf('//') !== -1) {
+                    var fixed = path.replace(/\/\/+/g, '/');
+                    window.location.replace(fixed + window.location.search + window.location.hash);
+                }
+            })();
+        </script>
         <script src="https://assets.emergent.sh/scripts/emergent-main.js"></script>
         <!--
         These two scripts have been added for the Visual Edits, please do not edit or remove them

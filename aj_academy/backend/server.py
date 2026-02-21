@@ -49,7 +49,7 @@ except Exception as e:
 RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
 RESEND_FROM = os.environ.get('RESEND_FROM', '')
 SENDER_EMAIL = os.environ.get('SENDER_EMAIL', '')
-FRONTEND_URL: EmailStr = os.environ.get('FRONTEND_URL', 'https://ajacademy.org.in')
+FRONTEND_URL: EmailStr = os.environ.get('FRONTEND_URL', 'https://ajacademy.org.in').rstrip('/')
 
 # Create the main app
 app = FastAPI()
