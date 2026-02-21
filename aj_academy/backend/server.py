@@ -1211,6 +1211,9 @@ async def delete_section(section_id: str, current_user: dict = Depends(get_curre
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Section not found")
     
+    # Also clean up any teacher assignments for this section
+    await db.teacher_assignments.delete_many({"section_id": section_id})
+    
     return {"success": True, "message": "Section deleted successfully"}
 
 # Standards Management

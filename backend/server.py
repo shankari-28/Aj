@@ -1211,6 +1211,9 @@ async def delete_section(section_id: str, current_user: dict = Depends(get_curre
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Section not found")
     
+    # Also clean up any teacher assignments for this section
+    await db.teacher_assignments.delete_many({"section_id": section_id})
+    
     return {"success": True, "message": "Section deleted successfully"}
 
 # Standards Management
@@ -1379,6 +1382,31 @@ async def assign_teacher(req: TeacherAssignmentCreateRequest, current_user: dict
 async def get_teacher_assignments(current_user: dict = Depends(get_current_user)):
     assignments = await db.teacher_assignments.find({}, {"_id": 0}).to_list(1000)
     return assignments
+
+@api_router.delete("/teachers/assignments/{assignment_id}")
+async def delete_teacher_assignment(assignment_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] not in ["super_admin", "school_admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    assignment = await db.teacher_assignments.find_one({"id": assignment_id}, {"_id": 0})
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+    await db.teacher_assignments.delete_one({"id": assignment_id})
+    # If no other assignment for this section, clear the section's teacher_id
+    other = await db.teacher_assignments.find_one({
+        "standard": assignment["standard"],
+        "section": assignment["section"],
+        "academic_year": assignment["academic_year"],
+    })
+    if not other:
+        await db.sections.update_one(
+            {
+                "standard": assignment["standard"],
+                "section_name": assignment["section"],
+                "academic_year": assignment["academic_year"],
+            },
+            {"$set": {"teacher_id": None}},
+        )
+    return {"success": True, "message": "Assignment removed successfully"}
 
 @api_router.get("/teachers/{teacher_id}/students")
 async def get_teacher_students(teacher_id: str, current_user: dict = Depends(get_current_user)):
