@@ -972,17 +972,25 @@ This is an automated email. Please do not reply to this message.
                 <p style="margin:0; font-size:22px; font-weight:800; color:#166534; letter-spacing:1px;">{BANK_UPI_ID}</p>
               </div>
 
-              <div class="info-box">
-                <p style="margin:0 0 10px 0;"><strong>⚠️ After making the payment — How to submit your receipt:</strong></p>
-                <ol style="margin:0; padding-left:20px; line-height:1.8;">
-                  <li>Take a <strong>screenshot</strong> or download the payment confirmation from your banking/UPI app.</li>
-                  <li>Go to <a href="https://drive.google.com" style="color:#166534;">drive.google.com</a> and sign in.</li>
-                  <li>Click <strong>+ New → File Upload</strong> and upload your receipt screenshot/PDF.</li>
-                  <li>Right-click the uploaded file → <strong>Share</strong> → <strong>Change to Anyone with the link</strong> → set to <strong>Viewer</strong>.</li>
-                  <li>Click <strong>Copy link</strong>.</li>
-                  <li>Click the <strong>"Submit Payment Receipt"</strong> button below, paste the link, and submit.</li>
-                </ol>
-                <p style="margin:10px 0 0 0; font-size:12px; color:#6b7280;">💡 Make sure the sharing is set to <em>"Anyone with the link can view"</em> so the admission team can verify your payment.</p>
+              <p style="margin-top: 20px;"><strong>How to Submit Your Proof of Payment (Step-by-Step):</strong></p>
+              <ol style="padding-left: 20px; line-height: 1.8;">
+                <li>Take a <strong>screenshot</strong> or download the payment confirmation from your banking/UPI app.</li>
+                <li>Go to <a href="https://drive.google.com" style="color:#1e3a8a;">drive.google.com</a> and sign in with your Google account.</li>
+                <li>Click <strong>+ New → File Upload</strong> and upload your payment receipt screenshot or PDF.</li>
+                <li>Right-click the uploaded file → <strong>Share</strong> → <strong>Change to Anyone with the link</strong> → set permission to <strong>Viewer</strong>.</li>
+                <li>Click <strong>Copy link</strong>.</li>
+                <li>Click the <strong>"Submit Payment Receipt"</strong> button below to open your application tracking page.</li>
+                <li><strong>Paste the copied link</strong> in the payment receipt submission field and click Submit.</li>
+              </ol>
+
+              <div style="background:#eff6ff; border-left:4px solid #1e3a8a; padding:14px 18px; border-radius:6px; margin:18px 0;">
+                <p style="margin:0 0 8px 0; font-weight:700; color:#1e3a8a;">&#128204; Important Notes:</p>
+                <ul style="padding-left: 20px; margin:0; line-height:1.8; color:#374151;">
+                  <li>Make sure the receipt/screenshot is <strong>clear and readable</strong>.</li>
+                  <li>The sharing permission <strong>must</strong> be set to <em>"Anyone with the link can view"</em> — otherwise the admission team cannot verify your payment.</li>
+                  <li>You can also use Dropbox, OneDrive, or any cloud storage service instead of Google Drive.</li>
+                  <li>Your link should look like: <code style="background:#dbeafe;padding:2px 6px;border-radius:4px;">https://drive.google.com/file/d/XXXXXXXXXX/view?usp=sharing</code></li>
+                </ul>
               </div>
 
               <p>Your Application Details:</p>
