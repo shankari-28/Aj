@@ -51,6 +51,16 @@ RESEND_FROM = os.environ.get('RESEND_FROM', '')
 SENDER_EMAIL = os.environ.get('SENDER_EMAIL', '')
 FRONTEND_URL: EmailStr = os.environ.get('FRONTEND_URL', 'https://ajacademy.org.in').rstrip('/')
 
+# ── Payment / Bank Details (mock – change these to real values) ──────────────
+# To update: edit the values below or set env vars BANK_NAME, BANK_ACCOUNT_NUMBER, etc.
+BANK_NAME = os.environ.get('BANK_NAME', 'Indian Bank')
+BANK_ACCOUNT_HOLDER = os.environ.get('BANK_ACCOUNT_HOLDER', 'AJ Academy')
+BANK_ACCOUNT_NUMBER = os.environ.get('BANK_ACCOUNT_NUMBER', '678900123456')
+BANK_IFSC = os.environ.get('BANK_IFSC', 'IDIB000M123')
+BANK_BRANCH = os.environ.get('BANK_BRANCH', 'Medavakkam, Chennai')
+BANK_UPI_ID = os.environ.get('BANK_UPI_ID', 'ajacademy@ibl')
+# ─────────────────────────────────────────────────────────────────────────────
+
 # Create the main app
 app = FastAPI()
 
@@ -573,7 +583,9 @@ async def get_application_by_tracking_token(tracking_token: str):
         "remarks": application.get("remarks", "We will contact you within 2-3 business days"),
         "date_of_birth": application.get("date_of_birth", ""),
         "documents_link": application.get("documents_link", ""),
-        "documents_submitted_at": application.get("documents_submitted_at", "")
+        "documents_submitted_at": application.get("documents_submitted_at", ""),
+        "payment_receipt_link": application.get("payment_receipt_link", ""),
+        "payment_receipt_submitted_at": application.get("payment_receipt_submitted_at", "")
     }
 
 class DocumentLinkSubmitRequest(BaseModel):
@@ -603,6 +615,33 @@ async def submit_documents_by_tracking_token(tracking_token: str, req: DocumentL
             raise HTTPException(status_code=404, detail="Application not found")
 
     return {"success": True, "message": "Documents link saved"}
+
+class PaymentReceiptSubmitRequest(BaseModel):
+    payment_receipt_link: str
+
+@api_router.post("/public/application/track/{tracking_token}/submit-payment-receipt")
+async def submit_payment_receipt_by_tracking_token(tracking_token: str, req: PaymentReceiptSubmitRequest):
+    """Save a payment receipt link using tracking token."""
+    receipt_link = (req.payment_receipt_link or "").strip()
+    if not receipt_link:
+        raise HTTPException(status_code=400, detail="payment_receipt_link is required")
+
+    now = datetime.now(timezone.utc).isoformat()
+    result = await db.applications.update_one(
+        {"tracking_token": tracking_token},
+        {"$set": {
+            "payment_receipt_link": receipt_link,
+            "payment_receipt_submitted_at": now,
+            "updated_at": now,
+        }}
+    )
+
+    if result.modified_count == 0:
+        exists = await db.applications.find_one({"tracking_token": tracking_token}, {"_id": 0})
+        if not exists:
+            raise HTTPException(status_code=404, detail="Application not found")
+
+    return {"success": True, "message": "Payment receipt link saved"}
 
 # Applications (Admission Officer)
 @api_router.get("/applications")
@@ -866,6 +905,108 @@ This is an automated email. Please do not reply to this message.
             email_scheduled = True
         else:
             logging.warning(f"No email address found for application {reference_number}, cannot send documents_verified email")
+
+    # If status is changing to payment_pending, send bank details + receipt upload link
+    if req.status == ApplicationStatus.PAYMENT_PENDING.value and old_status != ApplicationStatus.PAYMENT_PENDING.value:
+        student_name = application.get("student_name", "Student")
+        parent_name = application.get("parent_name", "Parent")
+        reference_number = application.get("reference_number", "")
+        tracking_token = application.get("tracking_token")
+        if not tracking_token:
+            tracking_token = generate_tracking_token()
+            update_data["tracking_token"] = tracking_token
+        tracking_url = f"{FRONTEND_URL}/track/{tracking_token}"
+
+        email_subject = f"Fee Payment Required 💳 - Admission Application {reference_number}"
+        email_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <style>
+            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .header {{ background-color: #1e3a8a; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }}
+            .content {{ background-color: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; }}
+            .bank-box {{ background-color: #eff6ff; border: 2px solid #93c5fd; border-radius: 8px; padding: 20px; margin: 20px 0; }}
+            .bank-row {{ display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #dbeafe; }}
+            .bank-label {{ color: #6b7280; font-size: 13px; }}
+            .bank-value {{ font-weight: 700; color: #1e3a8a; font-size: 14px; }}
+            .upi-box {{ background-color: #f0fdf4; border: 2px solid #86efac; border-radius: 8px; padding: 16px; margin: 16px 0; text-align: center; }}
+            .button {{ display: inline-block; background-color: #f97316; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: bold; }}
+            .info-box {{ background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }}
+            .footer {{ text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }}
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <img src='{FRONTEND_URL}/assets/aj-academy-logo.png' alt='AJ Academy' style='height:60px; margin-bottom:12px;'/>
+              <h1>AJ Academy</h1>
+              <p style="margin: 0; font-size: 14px;">Medavakkam, Chennai</p>
+            </div>
+            <div class="content">
+              <h2>Fee Payment Required</h2>
+              <p>Dear {parent_name},</p>
+              <p>We are pleased to inform you that the documents for <strong>{student_name}</strong>'s admission application have been verified successfully.</p>
+              <p>To complete the admission process, please make the fee payment using the bank details below:</p>
+
+              <div class="bank-box">
+                <h3 style="margin: 0 0 14px 0; color: #1e3a8a;">🏦 Bank / Payment Details</h3>
+                <table width="100%" cellpadding="8" cellspacing="0" style="border-collapse:collapse;">
+                  <tr style="border-bottom:1px solid #dbeafe;"><td style="color:#6b7280;font-size:13px;">Bank Name</td><td style="font-weight:700;color:#1e3a8a;text-align:right;">{BANK_NAME}</td></tr>
+                  <tr style="border-bottom:1px solid #dbeafe;"><td style="color:#6b7280;font-size:13px;">Account Holder</td><td style="font-weight:700;color:#1e3a8a;text-align:right;">{BANK_ACCOUNT_HOLDER}</td></tr>
+                  <tr style="border-bottom:1px solid #dbeafe;"><td style="color:#6b7280;font-size:13px;">Account Number</td><td style="font-weight:700;color:#1e3a8a;text-align:right;">{BANK_ACCOUNT_NUMBER}</td></tr>
+                  <tr style="border-bottom:1px solid #dbeafe;"><td style="color:#6b7280;font-size:13px;">IFSC Code</td><td style="font-weight:700;color:#1e3a8a;text-align:right;">{BANK_IFSC}</td></tr>
+                  <tr><td style="color:#6b7280;font-size:13px;">Branch</td><td style="font-weight:700;color:#1e3a8a;text-align:right;">{BANK_BRANCH}</td></tr>
+                </table>
+              </div>
+
+              <div class="upi-box">
+                <p style="margin:0 0 6px 0; color:#166534; font-size:13px;">Or pay via UPI</p>
+                <p style="margin:0; font-size:22px; font-weight:800; color:#166534; letter-spacing:1px;">{BANK_UPI_ID}</p>
+              </div>
+
+              <div class="info-box">
+                <p style="margin:0;"><strong>⚠️ After making the payment:</strong></p>
+                <ul style="margin:10px 0; padding-left:20px;">
+                  <li>Take a screenshot or download the payment confirmation</li>
+                  <li>Upload it to Google Drive or any cloud storage</li>
+                  <li>Share the link using the button below</li>
+                </ul>
+              </div>
+
+              <p>Your Application Details:</p>
+              <p style="background:#e5e7eb;padding:10px;border-radius:4px;font-family:monospace;">
+                <strong>Reference Number:</strong> {reference_number}<br>
+                <strong>Student Name:</strong> {student_name}
+              </p>
+
+              <p>Click below to submit your payment receipt:</p>
+              <div style="text-align:center;">
+                <a href="{tracking_url}" class="button">Submit Payment Receipt</a>
+              </div>
+              <p style="margin-top:20px;word-break:break-all;"><strong>Or copy-paste:</strong><br><a href="{tracking_url}" style="color:#1e3a8a;">{tracking_url}</a></p>
+
+              <p>If you have any questions, please contact us:<br>
+              <strong>Phone:</strong> +91 72008 25692<br>
+              <strong>Email:</strong> {SENDER_EMAIL or 'ajacademy2024@gmail.com'}</p>
+
+              <p>Best regards,<br><strong>Admission Office</strong><br>AJ Academy</p>
+            </div>
+            <div class="footer"><p>This is an automated email. Please do not reply.</p></div>
+          </div>
+        </body>
+        </html>
+        """
+
+        recipient_email = application.get("email")
+        if recipient_email:
+            background_tasks.add_task(send_email, recipient_email, email_subject, email_html)
+            logging.info(f"Scheduling payment_pending email to {recipient_email} for application {reference_number}")
+            email_scheduled = True
+        else:
+            logging.warning(f"No email address found for application {reference_number}, cannot send payment_pending email")
 
     # If status is changing to on_hold, email the hold reason (remarks)
     if req.status == ApplicationStatus.ON_HOLD.value and old_status != ApplicationStatus.ON_HOLD.value:

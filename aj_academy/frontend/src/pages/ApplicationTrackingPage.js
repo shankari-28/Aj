@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { CheckCircle, Clock, FileText, Mail, Phone, Calendar, User, School } from 'lucide-react';
+import { CheckCircle, Clock, FileText, Mail, Phone, Calendar, User, School, CreditCard } from 'lucide-react';
 import { publicAPI } from '../utils/api';
 import { toast } from 'sonner';
 import ajAcademyLogo from '../assets/aj-academy-logo.png';
@@ -12,12 +12,15 @@ const ApplicationTrackingPage = () => {
   const [loading, setLoading] = useState(true);
   const [documentLink, setDocumentLink] = useState('');
   const [submittingDoc, setSubmittingDoc] = useState(false);
+  const [paymentReceiptLink, setPaymentReceiptLink] = useState('');
+  const [submittingReceipt, setSubmittingReceipt] = useState(false);
 
   const loadApplication = useCallback(async () => {
     try {
       const response = await publicAPI.getApplicationByTrackingToken(trackingToken);
       setApplication(response.data);
       setDocumentLink(response.data?.documents_link || '');
+      setPaymentReceiptLink(response.data?.payment_receipt_link || '');
     } catch (error) {
       if (error.response?.status === 404) {
         toast.error('Application not found. Please check your link.');
@@ -50,6 +53,25 @@ const ApplicationTrackingPage = () => {
       toast.error(error.response?.data?.detail || 'Failed to submit documents link');
     } finally {
       setSubmittingDoc(false);
+    }
+  };
+
+  const handleSubmitPaymentReceipt = async (e) => {
+    e.preventDefault();
+    const link = paymentReceiptLink.trim();
+    if (!link) {
+      toast.error('Please paste your payment receipt link');
+      return;
+    }
+    setSubmittingReceipt(true);
+    try {
+      await publicAPI.submitPaymentReceiptByTrackingToken(trackingToken, { payment_receipt_link: link });
+      toast.success('Payment receipt submitted successfully!');
+      setApplication((prev) => prev ? { ...prev, payment_receipt_link: link } : prev);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to submit payment receipt');
+    } finally {
+      setSubmittingReceipt(false);
     }
   };
 
@@ -338,6 +360,86 @@ const ApplicationTrackingPage = () => {
                     className="px-5 py-2 bg-[#f97316] text-white rounded-lg hover:bg-[#f97316]/90 disabled:opacity-50"
                   >
                     {submittingDoc ? 'Submitting...' : 'Submit Link'}
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {/* Payment Pending Section */}
+            {application.status === 'payment_pending' && (
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-6">
+                <h3 className="font-bold text-purple-900 mb-4 flex items-center gap-2">
+                  <CreditCard className="w-5 h-5" />
+                  Fee Payment Required
+                </h3>
+                <p className="text-purple-800 mb-4">
+                  Please make the fee payment using the bank details below, then upload your payment receipt.
+                </p>
+
+                {/* Bank Details Card */}
+                {/* 🔧 TO CHANGE BANK DETAILS: update env vars in Render: BANK_NAME, BANK_ACCOUNT_HOLDER, BANK_ACCOUNT_NUMBER, BANK_IFSC, BANK_BRANCH, BANK_UPI_ID */}
+                <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 mb-4">
+                  <h4 className="font-bold text-blue-900 mb-3">🏦 Bank / Payment Details</h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <span className="text-gray-500">Bank Name</span>
+                    <span className="font-semibold text-blue-900">Indian Bank</span>
+                    <span className="text-gray-500">Account Holder</span>
+                    <span className="font-semibold text-blue-900">AJ Academy</span>
+                    <span className="text-gray-500">Account Number</span>
+                    <span className="font-semibold text-blue-900 font-mono tracking-wider">678900123456</span>
+                    <span className="text-gray-500">IFSC Code</span>
+                    <span className="font-semibold text-blue-900 font-mono">IDIB000M123</span>
+                    <span className="text-gray-500">Branch</span>
+                    <span className="font-semibold text-blue-900">Medavakkam, Chennai</span>
+                  </div>
+                  <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+                    <p className="text-green-700 text-xs mb-1">Or pay via UPI</p>
+                    <p className="text-green-800 font-bold text-xl tracking-wide">ajacademy@ibl</p>
+                  </div>
+                </div>
+
+                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 mb-4 text-sm text-yellow-800">
+                  <strong>⚠️ After making the payment:</strong>
+                  <ul className="list-disc list-inside mt-1 space-y-1">
+                    <li>Take a screenshot or download the payment confirmation</li>
+                    <li>Upload it to Google Drive / Dropbox / any cloud storage</li>
+                    <li>Set sharing to "Anyone with the link can view"</li>
+                    <li>Paste the link below and click Submit</li>
+                  </ul>
+                </div>
+
+                <form onSubmit={handleSubmitPaymentReceipt} className="mt-4 space-y-3">
+                  <div>
+                    <label className="block text-sm font-semibold text-purple-900 mb-2">
+                      Payment Receipt Link
+                    </label>
+                    <input
+                      type="url"
+                      value={paymentReceiptLink}
+                      onChange={(e) => setPaymentReceiptLink(e.target.value)}
+                      placeholder="https://drive.google.com/... (paste receipt link here)"
+                      className="w-full px-4 py-2 border-2 border-purple-200 rounded-lg bg-white focus:border-[#f97316] focus:ring-2 focus:ring-[#f97316]/20"
+                    />
+                    {application.payment_receipt_link && (
+                      <p className="text-xs text-purple-700 mt-2 break-all">
+                        ✅ Receipt already submitted:{" "}
+                        <a
+                          href={application.payment_receipt_link}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[#1e3a8a] underline"
+                        >
+                          Open
+                        </a>
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={submittingReceipt}
+                    className="px-5 py-2 bg-[#f97316] text-white rounded-lg hover:bg-[#f97316]/90 disabled:opacity-50"
+                  >
+                    {submittingReceipt ? 'Submitting...' : 'Submit Receipt'}
                   </button>
                 </form>
               </div>

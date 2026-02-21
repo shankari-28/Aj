@@ -181,6 +181,7 @@ const AdmissionDashboard = () => {
                   <th className="text-left p-3">Contact</th>
                   <th className="text-left p-3">Current Status</th>
                   <th className="text-left p-3">Docs Link</th>
+                  <th className="text-left p-3">Payment Receipt</th>
                   <th className="text-left p-3">Change Status</th>
                   <th className="text-left p-3">Actions</th>
                 </tr>
@@ -208,6 +209,20 @@ const AdmissionDashboard = () => {
                             className="text-blue-600 hover:underline"
                           >
                             View link
+                          </a>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </td>
+                      <td className="p-3 text-sm">
+                        {app.payment_receipt_link ? (
+                          <a
+                            href={app.payment_receipt_link}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-purple-600 hover:underline font-medium"
+                          >
+                            View receipt
                           </a>
                         ) : (
                           <span className="text-gray-400">—</span>

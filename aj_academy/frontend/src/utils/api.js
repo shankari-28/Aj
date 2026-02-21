@@ -43,6 +43,7 @@ export const publicAPI = {
   resolveTrackingToken: (data) => api.post('/public/application/resolve-tracking', data),
   getApplicationByTrackingToken: (token) => api.get(`/public/application/track/${token}`),
   submitDocumentsByTrackingToken: (token, data) => api.post(`/public/application/track/${token}/submit-documents`, data),
+  submitPaymentReceiptByTrackingToken: (token, data) => api.post(`/public/application/track/${token}/submit-payment-receipt`, data),
 };
 
 export const applicationsAPI = {
