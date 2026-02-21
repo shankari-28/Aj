@@ -754,21 +754,26 @@ async def update_application(application_id: str, req: ApplicationUpdateRequest,
                     <p style="margin-top: 30px; word-break: break-all;"><strong>Or copy and paste this link in your browser:</strong><br>
                     <a href="{tracking_url}" style="color: #1e3a8a;">{tracking_url}</a></p>
                     
-                    <p style="margin-top: 30px;"><strong>How to Submit Documents:</strong></p>
-                    <ol style="padding-left: 20px;">
-                        <li>Click the button above or use the tracking link</li>
-                        <li>You will see your application status and details</li>
-                        <li>Follow the instructions on the page to submit your documents</li>
-                        <li>You can also submit documents by pasting a Google Drive, Dropbox, or any cloud storage link</li>
+                    <p style="margin-top: 30px;"><strong>How to Submit Your Documents (Step-by-Step):</strong></p>
+                    <ol style="padding-left: 20px; line-height: 1.8;">
+                        <li>Go to <a href="https://drive.google.com" style="color:#1e3a8a;">drive.google.com</a> and sign in with your Google account.</li>
+                        <li>Click <strong>+ New → Folder</strong> and name it (e.g., <em>AJ Academy Documents</em>).</li>
+                        <li>Upload all required documents into that folder.</li>
+                        <li>Right-click the folder → <strong>Share</strong> → <strong>Change to Anyone with the link</strong> → set permission to <strong>Viewer</strong>.</li>
+                        <li>Click <strong>Copy link</strong>.</li>
+                        <li>Click the button below to open your application tracking page.</li>
+                        <li><strong>Paste the copied link</strong> in the document submission field and click Submit.</li>
                     </ol>
-                    
-                    <p><strong>Important Notes:</strong></p>
-                    <ul style="padding-left: 20px;">
-                        <li>Please ensure all documents are clear and readable</li>
-                        <li>Upload documents to Google Drive, Dropbox, OneDrive, or any cloud storage service</li>
-                        <li>Make sure the link is set to "Anyone with the link can view"</li>
-                        <li>Submit the link in the document submission field</li>
-                    </ul>
+
+                    <div style="background:#eff6ff; border-left:4px solid #1e3a8a; padding:14px 18px; border-radius:6px; margin:18px 0;">
+                        <p style="margin:0 0 8px 0; font-weight:700; color:#1e3a8a;">&#128204; Important Notes:</p>
+                        <ul style="padding-left: 20px; margin:0; line-height:1.8; color:#374151;">
+                            <li>Make sure all documents are <strong>clear and readable</strong>.</li>
+                            <li>The sharing permission <strong>must</strong> be set to <em>"Anyone with the link can view"</em> — otherwise the admission team cannot access your documents.</li>
+                            <li>You can also use Dropbox, OneDrive, or any cloud storage service instead of Google Drive.</li>
+                            <li>Your link should look like: <code style="background:#dbeafe;padding:2px 6px;border-radius:4px;">https://drive.google.com/drive/folders/XXXXXXXXXX?usp=sharing</code></li>
+                        </ul>
+                    </div>
                     
                     <p>If you have any questions or need assistance, please feel free to contact us:</p>
                     <p><strong>Phone:</strong> +91 72008 25692<br>
@@ -968,12 +973,16 @@ This is an automated email. Please do not reply to this message.
               </div>
 
               <div class="info-box">
-                <p style="margin:0;"><strong>⚠️ After making the payment:</strong></p>
-                <ul style="margin:10px 0; padding-left:20px;">
-                  <li>Take a screenshot or download the payment confirmation</li>
-                  <li>Upload it to Google Drive or any cloud storage</li>
-                  <li>Share the link using the button below</li>
-                </ul>
+                <p style="margin:0 0 10px 0;"><strong>⚠️ After making the payment — How to submit your receipt:</strong></p>
+                <ol style="margin:0; padding-left:20px; line-height:1.8;">
+                  <li>Take a <strong>screenshot</strong> or download the payment confirmation from your banking/UPI app.</li>
+                  <li>Go to <a href="https://drive.google.com" style="color:#166534;">drive.google.com</a> and sign in.</li>
+                  <li>Click <strong>+ New → File Upload</strong> and upload your receipt screenshot/PDF.</li>
+                  <li>Right-click the uploaded file → <strong>Share</strong> → <strong>Change to Anyone with the link</strong> → set to <strong>Viewer</strong>.</li>
+                  <li>Click <strong>Copy link</strong>.</li>
+                  <li>Click the <strong>"Submit Payment Receipt"</strong> button below, paste the link, and submit.</li>
+                </ol>
+                <p style="margin:10px 0 0 0; font-size:12px; color:#6b7280;">💡 Make sure the sharing is set to <em>"Anyone with the link can view"</em> so the admission team can verify your payment.</p>
               </div>
 
               <p>Your Application Details:</p>

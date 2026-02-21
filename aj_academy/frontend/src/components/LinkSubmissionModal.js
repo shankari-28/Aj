@@ -137,25 +137,38 @@ const LinkSubmissionModal = ({ applicationId, isOpen, onClose }) => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  Paste Your Document Link *
+                  Paste Your Google Drive / Cloud Storage Link *
                 </label>
-                <p className="text-xs text-gray-600 mb-3 flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-blue-600" />
-                  <span>
-                    Upload documents to Google Drive, Dropbox, OneDrive, or any cloud storage service.
-                    Make sure the link is set to "Anyone with the link can view".
-                  </span>
-                </p>
+
+                {/* How-to steps */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <p className="text-sm font-semibold text-blue-800 mb-2 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    How to create &amp; share your Google Drive link:
+                  </p>
+                  <ol className="list-decimal list-inside text-xs text-blue-900 space-y-1.5">
+                    <li>Go to <strong>drive.google.com</strong> and sign in with your Google account.</li>
+                    <li>Click <strong>+ New → Folder</strong> and name it (e.g., <em>AJ Academy Documents</em>).</li>
+                    <li>Upload all required documents into that folder.</li>
+                    <li>Right-click the folder → <strong>Share</strong> → <strong>Change to Anyone with the link</strong> → set permission to <strong>Viewer</strong>.</li>
+                    <li>Click <strong>Copy link</strong>.</li>
+                    <li><strong>Paste the copied link</strong> in the field below and click Submit.</li>
+                  </ol>
+                  <p className="text-xs text-gray-500 mt-2">
+                    💡 You can also use Dropbox, OneDrive, or any cloud storage — ensure the link is publicly viewable.
+                  </p>
+                </div>
+
                 <input
                   type="url"
                   value={link}
                   onChange={(e) => setLink(e.target.value)}
-                  placeholder="https://drive.google.com/... or https://..."
+                  placeholder="Paste your Google Drive link here — e.g. https://drive.google.com/drive/folders/XXXXXXXXXX?usp=sharing"
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-[#1e3a8a] focus:ring-2 focus:ring-[#1e3a8a]/20 outline-none transition"
                   required
                 />
                 <p className="text-xs text-gray-500 mt-2">
-                  Your link must be in a format like: https://drive.google.com/... or similar
+                  The link must start with <code>https://</code> and be set to "Anyone with the link can view".
                 </p>
               </div>
 
