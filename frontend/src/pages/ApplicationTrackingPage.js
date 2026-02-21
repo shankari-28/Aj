@@ -17,7 +17,7 @@ const ApplicationTrackingPage = () => {
     try {
       const response = await publicAPI.getApplicationByTrackingToken(trackingToken);
       setApplication(response.data);
-      setDocumentLink(response.data?.documents_link || '');
+      // Don't pre-fill inputs — keep them empty so placeholder is always visible.
     } catch (error) {
       if (error.response?.status === 404) {
         toast.error('Application not found. Please check your link.');
@@ -315,7 +315,7 @@ const ApplicationTrackingPage = () => {
                       type="url"
                       value={documentLink}
                       onChange={(e) => setDocumentLink(e.target.value)}
-                      placeholder="https://drive.google.com/... (Anyone with link can view)"
+                      placeholder="Paste your Google Drive link here — e.g. https://drive.google.com/drive/folders/XXXXXXXXXX?usp=sharing"
                       className="w-full px-4 py-2 border-2 border-yellow-200 rounded-lg bg-white focus:border-[#f97316] focus:ring-2 focus:ring-[#f97316]/20"
                     />
                     {application.documents_link && (
